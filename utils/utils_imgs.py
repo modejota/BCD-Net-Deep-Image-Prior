@@ -204,6 +204,8 @@ def tensor_patch_to_img(patch, mask, step_h = 70, step_w = 70):
             index += 1
     return img / mask
 
+
+
 def gopro_to_pair_patch(img1, img2):
     # img 1280 x 720 : B x C x H x W --> NB x C x patch_H x patch_W
     # make sur B == 1 and im1.shape == img2.shape

@@ -20,9 +20,9 @@ def get_dataloaders(args):
 if __name__ == "__main__":
     class args:
         def __init__(self):
-            self.batch_size = 4
-            self.patch_size = 224
-            self.train_data_path = "/data/BasesDeDatos/Camelyon/Camelyon17/training/Toy/"
+            self.batch_size = 1
+            self.patch_size = 128
+            self.train_data_path = "/data/"
             self.num_workers = 8
     args = args()
     print('working')
