@@ -6,12 +6,85 @@ import torch.nn.functional as F
 import torchvision.transforms.functional as TVTF
 from torchvision.utils import make_grid
 import torchvision.transforms as transforms
+import torch.utils.data as udata
+import glob
+import os
+import scipy.io
+from PIL import Image
+import cv2
+from skimage import img_as_float, img_as_ubyte
+
+
+
+
+class WSSBDatasetTest(udata.Dataset):
+    def __init__(self, mode='test'):
+        if mode != 'test':
+            raise Exception("Invalid mode!", mode)
+        data_path = '/work/work_ysw/Deblur_Code/test_data/RGB_images/'
+        train_centers = [1]  # This will take images from centers 0, 2 and 4
+        # Breast_patches_ids = []
+        # Colon_patches_ids = []
+        Lung_patches_ids = []
+        for c in train_centers:
+            # Breast_patches_ids = Breast_patches_ids + glob.glob(
+            #     data_path + 'Breast' +  '/*/*/*.png')
+            # Colon_patches_ids = Colon_patches_ids + glob.glob(
+            #     data_path + 'Colon' +  '/*/*/*.bmp')
+            Lung_patches_ids = Lung_patches_ids + glob.glob(
+                data_path + 'Lung' + '/*/*/*.png')
+        OD_list = Lung_patches_ids
+
+        self.keys = OD_list
+        random.shuffle(self.keys)
+        # self.keys.sort()
+
+    def __len__(self):
+        return len(self.keys)
+
+    def __getitem__(self, index):
+
+        # hyper = Image.open(self.keys[index])
+        im = img_as_float(Image.open(self.keys[index]))
+
+        # im= torch.Tensor(im)
+        # im = im.squeeze(dim=0)
+        return im
+
+
+
+
+
+
+
+
+
+
+
+
+
+class AverageMeter(object):
+    def __init__(self):
+        self.reset()
+
+    def reset(self):
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+
+    def update(self, val, n=1):
+        self.val = val
+        self.sum += val * n
+        self.count += n
+        self.avg = self.sum / self.count
 
 def npimg_to_tensor(img):
     npimg_to_tensor_transforms = transforms.Compose([
         transforms.ToTensor(),  # range [0, 255] -> [0.0,1.0], HWC->CHW
     ])
     return npimg_to_tensor_transforms(img.copy())
+
 
 def pad_image(img, d=8):
     """
@@ -204,6 +277,8 @@ def tensor_patch_to_img(patch, mask, step_h = 70, step_w = 70):
             index += 1
     return img / mask
 
+
+
 def gopro_to_pair_patch(img1, img2):
     # img 1280 x 720 : B x C x H x W --> NB x C x patch_H x patch_W
     # make sur B == 1 and im1.shape == img2.shape
@@ -224,3 +299,14 @@ def gopro_to_pair_patch(img1, img2):
             patch2 = img2[:, :, ind_H: ind_H + patch_H, ind_W: ind_W + patch_W]
             out2[num] = patch2.squeeze(0)
     return out1, out2
+
+
+
+
+
+
+
+
+
+
+
