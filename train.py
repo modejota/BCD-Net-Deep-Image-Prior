@@ -11,8 +11,8 @@ import scipy.io
 # from utils.utils_metric import batch_PSNR, batch_SSIM
 from datasets.main_dataset import get_dataloaders
 from loss import loss_fn
-from networks.dnet import get_dnet
-from networks.knet import get_knet
+from networks.cnet import get_dnet
+from networks.mnet import get_knet
 from options import set_opts
 
 
@@ -46,8 +46,8 @@ def adjust_learning_rate(optimizer, epoch, args):
 
 
 def main():
-    dnet = get_dnet(args.DNet)
-    knet = get_knet(args.KNet, kernel_size=3)
+    dnet = get_dnet(args.CNet)
+    knet = get_knet(args.MNet, kernel_size=3)
     dnet = dnet.cuda()
     knet = knet.cuda()
     optimizer_d = optim.Adam(dnet.parameters(), args.lr_D)

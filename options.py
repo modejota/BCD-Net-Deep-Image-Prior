@@ -34,7 +34,7 @@ def set_opts():
     #                     help="Path to save the test text images")
     # parser.add_argument('--test_data_kohler_path', default='./data/kohler/', type=str, metavar='PATH',
     #                     help="Path to save the test  kohler images")
-    parser.add_argument('--train_data_path', default='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/', type=str, metavar='PATH',
+    parser.add_argument('--train_data_path', default='/data/BasesDeDatos/Camelyon/Camelyon17/training/Toy/', type=str, metavar='PATH',
                         help="Path to save the Camelyon dataset images")
     # parser.add_argument('--data_realblur_path', default='./data/real_blur/', type=str, metavar='PATH',
     #                     help="Path to save the RealBlur dataset images")

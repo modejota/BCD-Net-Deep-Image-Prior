@@ -2,7 +2,7 @@ import torch
 from networks.resnet import ResNet18IN #,ResNet18BN
 
 
-def get_knet(net_name, kernel_size):
+def get_mnet(net_name, kernel_size):
     if net_name == "resnet_18_in":
         return ResNet18IN(kernel_size)
     elif net_name == "resnet_18_bn":
@@ -14,7 +14,7 @@ def get_knet(net_name, kernel_size):
 
 if __name__ == "__main__":
     import time
-    model = get_knet(net_name="resnet_18_in", kernel_size=3).cuda()
+    model = get_mnet(net_name="resnet_18_in", kernel_size=3).cuda()
     x = torch.rand(1, 3, 256, 256).cuda()
     tic = time.time()
     y = model(x)

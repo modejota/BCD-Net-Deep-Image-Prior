@@ -73,7 +73,9 @@ class ResNet18IN(nn.Module):
 
 
 if __name__ == "__main__":
+    print(torch.cuda.is_available())
     model = ResNet18IN(kernel_size=3).cuda()
+
     print(model)
     x = torch.randn(1, 3, 128, 160).cuda()
     y = model(x)

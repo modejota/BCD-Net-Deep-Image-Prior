@@ -1,7 +1,7 @@
 import torch
 from networks.unet import UNet
 
-def get_dnet(net_name):
+def get_cnet(net_name):
     if net_name == 'unet_6':
         return UNet(in_nc=3, out_nc=2, nc=64, num_blocks=6)##############################################
 
@@ -24,7 +24,7 @@ if __name__ == "__main__":
         # print("Total paramerters: {}".format(sum(x.numel() for x in model.parameters())))
         import time
         torch.cuda.empty_cache()
-        model = get_dnet('unet_2')
+        model = get_cnet('unet_2')
         end = time.time()
         print(model)
         print("Total paramerters: {}".format(sum(x.numel() for x in model.parameters())))
