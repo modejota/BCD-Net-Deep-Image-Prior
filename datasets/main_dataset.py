@@ -36,3 +36,4 @@ if __name__ == "__main__":
         imgs, matrixes= data
         print(imgs.shape) #batch_size, 3, patch_size, patch_size
         print(matrixes.shape) #batch_size, 1, 3, n_stains=2
+        print(test)
