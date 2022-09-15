@@ -7,11 +7,13 @@ import torchvision.transforms.functional as TVTF
 from torchvision.utils import make_grid
 import torchvision.transforms as transforms
 
+
 def npimg_to_tensor(img):
     npimg_to_tensor_transforms = transforms.Compose([
         transforms.ToTensor(),  # range [0, 255] -> [0.0,1.0], HWC->CHW
     ])
     return npimg_to_tensor_transforms(img.copy())
+
 
 def pad_image(img, d=8):
     """
@@ -119,15 +121,15 @@ def npimg_random_crop_patch(im, patch_size):
 
 
 def tensorimg_random_crop_patch(im, patch_size):
-    H = im.shape[0]
-    W = im.shape[1]
+    H = im.shape[1]
+    W = im.shape[2]
     if H < patch_size or W < patch_size:
         H = max(patch_size, H)
         W = max(patch_size, W)
-        im = cv2.resize(im, [H, W])
+        im = TVTF.resize(im, [H, W])
     ind_H = random.randint(0, H - patch_size)
     ind_W = random.randint(0, W - patch_size)
-    patch = im[ ind_H : ind_H + patch_size, ind_W : ind_W + patch_size,:]
+    patch = im[:, ind_H : ind_H + patch_size, ind_W : ind_W + patch_size]
 
     return patch
 
@@ -204,6 +206,8 @@ def tensor_patch_to_img(patch, mask, step_h = 70, step_w = 70):
             index += 1
     return img / mask
 
+
+
 def gopro_to_pair_patch(img1, img2):
     # img 1280 x 720 : B x C x H x W --> NB x C x patch_H x patch_W
     # make sur B == 1 and im1.shape == img2.shape
@@ -224,3 +228,14 @@ def gopro_to_pair_patch(img1, img2):
             patch2 = img2[:, :, ind_H: ind_H + patch_H, ind_W: ind_W + patch_W]
             out2[num] = patch2.squeeze(0)
     return out1, out2
+
+
+
+
+
+
+
+
+
+
+
