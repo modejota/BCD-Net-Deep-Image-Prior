@@ -121,10 +121,11 @@ class UNet(nn.Module):
 if __name__ == "__main__":
     model = UNet(in_nc=3, out_nc=2, nc=64, num_blocks=6).cuda()
     with torch.no_grad():
-        x = torch.randn(1, 3, 763, 671).cuda()
+        x = torch.randn(1, 3, 224, 224).cuda()
         y = model(x)
-    print(y.shape)
     print(model)
+    print(y.shape)
+
     print("Total paramerters: {}".format(sum(x.numel() for x in model.parameters())))
 
 

@@ -1,8 +1,9 @@
 import torch
 from networks.unet import UNet
 
+
 def get_cnet(net_name):
-    if net_name == 'unet_6':
+    if net_name == 'unet_2':
         return UNet(in_nc=3, out_nc=2, nc=64, num_blocks=6)##############################################
 
     else:

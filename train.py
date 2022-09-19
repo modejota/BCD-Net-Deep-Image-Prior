@@ -25,23 +25,23 @@ for arg in vars(args):
     print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
 
 
-modes_all = {"center_0": ["train_center_0", "test_center_0"],
-             "center_1": ["train_center_1", "test_center_1"],
-             "center_2":  ["train_center_2", "test_center_2"],
-             "center_3":  ["train_center_3", "test_center_3"]}
+# modes_all = {"center_0": ["train_center_0", "test_center_0"],
+#              "center_1": ["train_center_1", "test_center_1"],
+#              "center_2":  ["train_center_2", "test_center_2"],
+#              "center_3":  ["train_center_3", "test_center_3"]}
 
 
 def adjust_learning_rate(optimizer, epoch, args):
-    if args.run_mode == "center_0":
-        if epoch <= 60:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = 1e-4
-        elif epoch <= 80:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = 1e-5
-        else:
-            for param_group in optimizer.param_groups:
-                param_group['lr'] = 1e-6
+    # if args.run_mode == "center_0":
+    if epoch <= 60:
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = 1e-4
+    elif epoch <= 80:
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = 1e-5
+    else:
+        for param_group in optimizer.param_groups:
+            param_group['lr'] = 1e-6
 
 
 

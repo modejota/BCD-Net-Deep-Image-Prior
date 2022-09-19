@@ -23,7 +23,8 @@ class ResNet18IN(nn.Module):
 
         self.M_var = nn.Sequential(
             nn.ReLU(inplace=True),
-            nn.Linear(fc_hidden_dim, 2*kernel_size),
+            # nn.Linear(fc_hidden_dim, 2*kernel_size),
+            nn.Linear(fc_hidden_dim, 2),
             nn.ReLU(inplace=True)
         )
 
@@ -33,13 +34,13 @@ class ResNet18IN(nn.Module):
         x = F.instance_norm(x)
         x = self.model(x)
         mean = self.M_mean(x)
-        mean = mean.reshape(mean.size()[0],3,2)
+        mean = mean.view(mean.size()[0],3,2)
         l1 = torch.norm(mean, dim=2, keepdim=True)  # dims= 0 -batch_size, 1- row, 2- cols (norm across)
         l1_ = 1.0 / (l1 + 1e-10)
         # mean = mean * l1_
 
         var = self.M_var(x)
-        var = var.reshape(var.size()[0],3,2)
+        var = var.view(var.size()[0],-1,2)
 
         return mean, var
 
@@ -73,11 +74,12 @@ class ResNet18IN(nn.Module):
 
 
 if __name__ == "__main__":
+
     print(torch.cuda.is_available())
     model = ResNet18IN(kernel_size=3).cuda()
 
     print(model)
-    x = torch.randn(1, 3, 128, 160).cuda()
+    x = torch.randn(1, 3, 224, 224).cuda()
     y = model(x)
-    print(y.shape)
+    print(y)
     print("Total paramerters: {}".format(sum(x.numel() for x in model.parameters())))

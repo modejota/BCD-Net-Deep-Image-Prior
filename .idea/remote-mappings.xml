@@ -4,6 +4,13 @@
     <list>
       <list>
         <remote-mappings server-id="python@204f8cac-1e57-4bac-85f9-97ef3ada28da" />
+        <remote-mappings server-id="python@sftp://fperez@cvision.ugr.es:22/home/fperez/anaconda3/envs/BCDnet/bin/python3.7">
+          <settings>
+            <list>
+              <mapping local-root="$PROJECT_DIR$" remote-root="/work/work_fperez/Deep_Var_BCD" />
+            </list>
+          </settings>
+        </remote-mappings>
       </list>
     </list>
   </component>
