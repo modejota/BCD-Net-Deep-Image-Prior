@@ -3,10 +3,11 @@ from networks.unet import UNet
 
 
 def get_cnet(net_name):
-    if net_name == 'unet_2':
+    if net_name == 'unet_6':
         return UNet(in_nc=3, out_nc=2, nc=64, num_blocks=6)##############################################
 
     else:
+        print(net_name)
         raise Exception('Invalid net')
 
 if __name__ == "__main__":

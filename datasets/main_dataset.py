@@ -7,13 +7,11 @@ def get_dataloaders(args):
     test_centers=[1,3]
     train_dataset= CamelyonDataset(args.train_data_path,train_centers,patch_size=args.patch_size)
 
-    train_dataloader = DataLoader(train_dataset,batch_size=args.batch_size, shuffle=True,
-                                  num_workers=args.num_workers, pin_memory=True)
+    train_dataloader = DataLoader(train_dataset,batch_size=args.batch_size, shuffle=True)
 
     test_dataset = CamelyonDataset(args.train_data_path,test_centers, patch_size=args.patch_size)
 
-    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True,
-                                  num_workers=args.num_workers, pin_memory=True)
+    test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
 
     return {"Train" : train_dataloader, "Test" : test_dataloader}
 

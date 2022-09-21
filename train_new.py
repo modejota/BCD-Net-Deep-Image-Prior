@@ -32,10 +32,10 @@ args = set_opts()
 for arg in vars(args):
     print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
 
-modes_all = {"center_0": ["Train", "Test"],
-             "center_1": ["train_center_1", "test_center_1"],
-             "center_2":  ["train_center_2", "test_center_2"],
-             "center_3":  ["train_center_3", "test_center_3"]}
+# modes_all = {"center_0": ["Train", "Test"],
+#              "center_1": ["train_center_1", "test_center_1"],
+#              "center_2":  ["train_center_2", "test_center_2"],
+#              "center_3":  ["train_center_3", "test_center_3"]}
 
 def adjust_learning_rate(optimizer, epoch, args):
     if args.run_mode == "center_0":
@@ -52,16 +52,16 @@ def adjust_learning_rate(optimizer, epoch, args):
 
 
 def main():
-    cnet = get_dnet(args.CNet)
-    mnet = get_knet(args.MNet, kernel_size=3)
+    cnet = get_cnet(args.CNet)
+    mnet = get_mnet(args.MNet, kernel_size=3)
     cnet = cnet.cuda()
     mnet = mnet.cuda()
     optimizer_c = optim.Adam(cnet.parameters(), args.lr_C)
     optimizer_m = optim.Adam(mnet.parameters(), args.lr_M)
 
     pretraining_epoch = args.pretraining_epoch
-    writer = SummaryWriter(args.log_dir)
-    _modes = modes_all[args.run_mode]
+    # writer = SummaryWriter(args.log_dir)
+    # _modes = modes_all[args.run_mode]
 
     if args.resume:
         if os.path.isfile(args.resume):
@@ -101,8 +101,8 @@ def main():
         mnet.train()
         loss_per_epoch = {x: 0 for x in ['Loss', 'NegLH', 'kl_vh_gauss', 'kl_ve_gauss']}
         mse_per_epoch = {x: 0 for x in _modes}
-        # 为了让训练更稳定加入一个预训练模糊核的过程
-        # Trains only Knet with color matrix, we are not doing it at the moment
+
+        # Trains only Mnet with color matrix
         if epoch < pretraining_epoch:
             pre_l1_loss = 0
             for ii, data in enumerate(data_loaders[_modes[0]]):

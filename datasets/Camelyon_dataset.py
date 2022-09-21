@@ -21,9 +21,9 @@ class CamelyonDataset(Dataset):
         self.augment = augment
         self.add_noise = add_noise
         self.image_list = self.scan_files(data_root_path,train_centers)
-        self.mR = torch.tensor([[[0.6442, 0.0928],
+        self.mR = torch.tensor([[0.6442, 0.0928],
              [0.7166, 0.9541],
-             [0.2668, 0.2831]]])
+             [0.2668, 0.2831]])
         # print('Reference matrix',self.mR,self.mR.size())
 
     def scan_files(self, data_root_path, train_centers):
