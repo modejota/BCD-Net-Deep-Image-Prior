@@ -48,8 +48,8 @@ def set_opts():
     parser.add_argument('--num_workers', default=8, type=int, help="Number of workers to load data, (default: 8)")
 
     # hyper-parameters
-    parser.add_argument('--alpha_e2', default=1e-3, type=float, help="Variance for prior of p(x), (default: 1e-6)")
-    parser.add_argument('--alpha_h2', default=1e-3, type=float, help="Variance for prior of p(x), (default: 1e-6)")
+    parser.add_argument('--sigma_h2', default=1e-3, type=float, help="Variance for prior of p(x), (default: 1e-6)")
+    parser.add_argument('--sigma_e2', default=1e-3, type=float, help="Variance for prior of p(x), (default: 1e-6)")
 
     parser.add_argument('--sigma2', default=1e-4, type=float, help="Variance for p(y|k, x), (default: 1e-5)")
 
