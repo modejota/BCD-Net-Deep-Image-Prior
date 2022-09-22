@@ -67,8 +67,8 @@ def main():
             args.epoch_start = checkpoint['epoch']
             optimizer_c.load_state_dict(checkpoint['optimizer_c_state_dict'])
             optimizer_m.load_state_dict(checkpoint['optimizer_m_state_dict'])
-            cnet.load_state_dict(checkpoint['c_model_state_dict'], strict=True)
-            mnet.load_state_dict(checkpoint['m_model_state_dict'], strict=True)
+            cnet.load_state_dict(checkpoint['c_net_state_dict'], strict=True)
+            mnet.load_state_dict(checkpoint['m_net_state_dict'], strict=True)
             print(f'=> Loaded checkpoint {args.resume}')
         else:
             sys.exit('Please provide corrected model path!')
