@@ -97,7 +97,3 @@ def main():
                     'optimizer_c_state_dict': optimizer_c.state_dict(),
                     'optimizer_m_state_dict': optimizer_m.state_dict(),
                 }, save_path_model)
-                save_path_c_model_state = os.path.join(args.model_dir, 'model_state_c_' + str(epoch + 1))
-                torch.save(cnet.state_dict(), save_path_c_model_state)
-                save_path_m_model_state = os.path.join(args.model_dir, 'model_state_m_' + str(epoch + 1))
-                torch.save(mnet.state_dict(), save_path_m_model_state)
