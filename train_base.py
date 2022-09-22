@@ -44,6 +44,9 @@ def adjust_learning_rate(optimizer, epoch, args):
             param_group['lr'] = 1e-6
 
 def main():
+
+
+
     sigma_s2 = torch.tensor([args.sigma_h2, args.sigma_e2])
     sigma_s2 = sigma_s2.to(device)
 
@@ -55,8 +58,25 @@ def main():
     optimizer_m = optim.Adam(mnet.parameters(), args.lr_M)
 
     data_loaders = get_dataloaders(args)
-    pre_optimizer_m = optim.Adam(mnet.parameters(), lr=5e-4)
-    args.epoch_start = 0
+    # pre_optimizer_m = optim.Adam(mnet.parameters(), lr=5e-4)
+
+    if args.resume:
+        if os.path.isfile(args.resume):
+            print('=> Loading checkpoint {:s}'.format(args.resume))
+            checkpoint = torch.load(args.resume)
+            args.epoch_start = checkpoint['epoch']
+            optimizer_c.load_state_dict(checkpoint['optimizer_c_state_dict'])
+            optimizer_m.load_state_dict(checkpoint['optimizer_m_state_dict'])
+            cnet.load_state_dict(checkpoint['c_model_state_dict'], strict=True)
+            mnet.load_state_dict(checkpoint['m_model_state_dict'], strict=True)
+            print(f'=> Loaded checkpoint {args.resume}')
+        else:
+            sys.exit('Please provide corrected model path!')
+    else:
+        args.epoch_start = 0
+        os.makedirs(args.log_dir, exist_ok=True)
+        os.makedirs(args.model_dir, exist_ok=True)
+
 
 
 
