@@ -86,3 +86,18 @@ def main():
             loss.backward()
             optimizer_m.step()
             optimizer_c.step()
+
+            if (epoch + 1) % args.save_model_freq == 0 or epoch + 1 == args.epochs:
+                model_prefix = 'model_'
+                save_path_model = os.path.join(args.model_dir, model_prefix + str(epoch + 1))
+                torch.save({
+                    'epoch': epoch + 1,
+                    'c_net_state_dict': cnet.state_dict(),
+                    'm_net_state_dict': mnet.state_dict(),
+                    'optimizer_c_state_dict': optimizer_c.state_dict(),
+                    'optimizer_m_state_dict': optimizer_m.state_dict(),
+                }, save_path_model)
+                save_path_c_model_state = os.path.join(args.model_dir, 'model_state_c_' + str(epoch + 1))
+                torch.save(cnet.state_dict(), save_path_c_model_state)
+                save_path_m_model_state = os.path.join(args.model_dir, 'model_state_m_' + str(epoch + 1))
+                torch.save(mnet.state_dict(), save_path_m_model_state)
