@@ -1,4 +1,5 @@
 import time
+import datetime
 import os
 import sys
 import torchvision
@@ -23,7 +24,7 @@ torch.autograd.set_detect_anomaly(True)
 USE_GPU = True
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 if USE_GPU and torch.cuda.is_available():
-    device = torch.device('cuda:2')
+    device = torch.device('cuda:3')
 else:
     device = torch.device('cpu')
 print('using device:', device)
@@ -58,6 +59,8 @@ def main():
     optimizer_m = optim.Adam(mnet.parameters(), args.lr_M)
 
     data_loaders = get_dataloaders(args)
+    num_iter_per_epoch = {phase: len(data_loaders[phase]) for phase in data_loaders.keys()}
+    print('iters_per_epoch:',num_iter_per_epoch)
     # pre_optimizer_m = optim.Adam(mnet.parameters(), lr=5e-4)
 
     if args.resume:
@@ -79,9 +82,12 @@ def main():
 
 
 
-
+    print('Training start:', datetime.now())
     for epoch in range(args.epoch_start, args.epochs):
         tic = time.time()
+        loss_epoch, mse_epoch, kl_epoch = 0, 0, 0
+        val_loss_epoch, val_mse_epoch, val_kl_epoch = 0, 0, 0
+
         cnet.train()
         mnet.train()
 
@@ -92,6 +98,7 @@ def main():
         lr_M = optimizer_m.param_groups[0]['lr']
 
         for ii, data in enumerate(data_loaders['Train']):
+            # tic2=time.time()
             Y = data[0].to(device)
             MR = data[1].to(device)
 
@@ -107,7 +114,42 @@ def main():
             optimizer_m.step()
             optimizer_c.step()
 
-            if (epoch + 1) % args.save_model_freq == 0 or epoch + 1 == args.epochs:
+            loss_epoch += loss.item() / num_iter_per_epoch['Train']
+            mse_epoch += loss_mse.item() / num_iter_per_epoch['Train']
+            kl_epoch += loss_kl.item() / num_iter_per_epoch['Train']
+            # toc2=time.time()
+            # print(f'This iter take time {toc2 - tic2:.2f} s.')
+
+        # Validation
+        with torch.no_grad():
+            cnet.eval()
+            mnet.eval()
+            for ii, data in enumerate(data_loaders['Test']):
+                Y = data[0].to(device)
+                MR = data[1].to(device)
+
+                out_Mnet_mean, out_Mnet_var = mnet(Y)
+                out_Cnet = cnet(Y)
+
+                val_loss, val_loss_kl, val_loss_mse = loss_BCD(out_Cnet, out_Mnet_mean, out_Mnet_var, Y, sigma_s2,
+                                                               MR, args.patch_size)
+
+                val_loss_epoch += val_loss.item() / num_iter_per_epoch['Test']
+                val_mse_epoch += val_loss_mse.item() / num_iter_per_epoch['Test']
+                val_kl_epoch += val_loss_kl.item() / num_iter_per_epoch['Test']
+        #     print('Validation',epoch, val_loss_epoch, val_mse_epoch, val_kl_epoch )
+
+        #Log
+        print('Epoch', epoch,
+              'loss', round(loss_epoch, 3), 'mse_loss', round(mse_epoch, 3), 'kl_loss', round(kl_epoch, 3),
+              'val_loss', round(val_loss_epoch, 3), 'val_mse_loss', round(val_mse_epoch, 3), 'val_kl_loss',
+              round(val_kl_epoch, 3), sep=',')
+
+        toc = time.time()
+        print(f'This epoch take time {toc - tic:.2f} s.')
+
+        # Model saver
+        if (epoch + 1) % args.save_model_freq == 0 or epoch + 1 == args.epochs:
                 model_prefix = 'model_'
                 save_path_model = os.path.join(args.model_dir, model_prefix + str(epoch + 1))
                 torch.save({
@@ -117,3 +159,8 @@ def main():
                     'optimizer_c_state_dict': optimizer_c.state_dict(),
                     'optimizer_m_state_dict': optimizer_m.state_dict(),
                 }, save_path_model)
+    print ('Training completed')
+
+
+if __name__ == '__main__':
+    main()
