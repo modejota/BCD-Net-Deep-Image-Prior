@@ -32,7 +32,7 @@ class CamelyonDataset(Dataset):
         # print('patch list len:',len(image_list))
         # return image_list
         OD_img_list = []
-        n_samples = 4  # Desired size for the dataset, you can change this
+        n_samples = 100000  # Desired size for the dataset, you can change this
         #         camelyon_dir='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/'
         # train_centers = [0, 2, 4]  # This will take images from centers 0, 2 and 4
         tumor_patches_ids = []
@@ -44,7 +44,8 @@ class CamelyonDataset(Dataset):
 
         # ALL PATCHES
         train_patches = tumor_patches_ids + normal_patches_ids
-        print('Available patches:', len(train_patches))
+        n_possible=np.min([len(train_patches),n_samples])
+        print('Available patches:', len(train_patches), 'Using:',n_possible)
         random.seed(42)  # This is important to choose always the same patches
 
         OD_img_list = random.sample(train_patches, n_samples)
