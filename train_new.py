@@ -52,6 +52,8 @@ def adjust_learning_rate(optimizer, epoch, args):
 
 
 def main():
+    # cnet <--> dnet
+    # mnet <--> knet
     cnet = get_dnet(args.CNet)
     mnet = get_knet(args.MNet, kernel_size=3)
     cnet = cnet.cuda()
@@ -127,15 +129,13 @@ def main():
 
             for ii, data in enumerate(data_loaders[phase]):
 
-
                 y = data[0].cuda()
-                mR= data[1].cuda() #BHW
-
+                mR = data[1].cuda() #BHW
 
                 optimizer_m.zero_grad()
                 optimizer_c.zero_grad()
-                out_MNet_mean,out_MNet_var = mnet(y)
 
+                out_MNet_mean, out_MNet_var = mnet(y)
                 out_CNet = cnet(y)
 
                 loss, mse_loss, kl_loss, kl_vh_gauss, kl_ve_gauss = loss_fn(out_CNet, out_MNet_mean,out_MNet_var, y,args.batch_size,args.patch_size,

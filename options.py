@@ -48,10 +48,10 @@ def set_opts():
     parser.add_argument('--num_workers', default=8, type=int, help="Number of workers to load data, (default: 8)")
 
     # hyper-parameters
-    parser.add_argument('--alpha_e2', default=1e-3, type=float, help="Variance for prior of p(x), (default: 1e-6)")
-    parser.add_argument('--alpha_h2', default=1e-3, type=float, help="Variance for prior of p(x), (default: 1e-6)")
+    parser.add_argument('--sigmaRui_h_sq', default=1e-3, type=float, help="") # sigma de la h
+    parser.add_argument('--sigmaRui_e_sq', default=1e-3, type=float, help="") # sigma de la e
 
-    parser.add_argument('--sigma2', default=1e-4, type=float, help="Variance for p(y|k, x), (default: 1e-5)")
+    parser.add_argument('--theta', default=1e-4, type=float, help="") #lambda
 
 
     # network architecture
@@ -93,4 +93,59 @@ def set_opts():
     parser.add_argument('--dist_backend', default='nccl', type=str, help='distributed backend')
 
     args = parser.parse_args()
+    return args
+
+def set_opts_jp():
+
+    # trainning settings
+
+    parser = {}
+
+    parser['batch_size'] = 2
+    parser['patch_size'] = 128
+    parser['epochs'] = 5
+    parser['pretraining_epochs'] = 1
+    parser['print_freq'] = 1
+    parser['save_model_freq'] = 20
+
+    parser['lr_C'] = 1e-4
+    parser['lr_M'] = 1e-4
+    parser['gamma'] = 0.1
+
+    parser['clip_grad_C'] = 1e4
+    parser['clip_grad_M'] = 1e5
+
+    parser['train_data_path'] = '/data/BasesDeDatos/Camelyon/Camelyon17/training/Toy/'
+    parser['pre_kernel_path'] = ''
+
+    parser['log_dir'] = './log'
+    parser['model_dir'] = './model'
+    parser['resume'] = ''
+    parser['num_workers'] = 8
+
+    parser['sigmaRui_h_sq'] = 1e-3
+    parser['sigmaRui_e_sq'] = 1e-3
+
+    parser['theta'] = 0.5
+    parser['pre_kl'] = 1e2
+    parser['pre_mse'] = 1e-2
+
+    parser['code_len'] = 30
+    parser['CNet'] = 'unet_6'
+    parser['MNet'] = 'resnet_18_in'
+
+    parser['max_size'] = 3
+    parser['dirichlet_para_stretch'] = 20000
+    parser['prekernels'] = ""
+
+    parser['nrow'] = 8
+    parser['epoch_start_test'] = 20
+    parser['skip_grad'] = 1e6
+
+    parser['warm_up_epoch'] = 0
+    parser['kl_dir_weight'] = 1.0
+
+    parser['run_mode'] = "center_0"
+
+    args = argparse.Namespace(**parser)
     return args

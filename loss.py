@@ -2,62 +2,60 @@ import torch
 from math import pi, log
 import torch.nn.functional as F
 
-def loss_fn(out_CNet, out_MNet_mean,out_MNet_var, y, batch_size,patch_size,alpha_h2,alpha_e2,mR,sigma2):
+def loss_fn(out_CNet, out_MNet_mean, out_MNet_var, y, mR, sigmaRui_h_sq, sigmaRui_e_sq, theta=0.5, pretraining=False, pre_kl=1e2, pre_mse=1e-2):
     """
     Args:
         out_CNet: output of DeblurNet, estimation of the separated concentrations in the image, one layer for each stain,
             shape: batch x 2 x H x W
-        out_MNet: output of KernelNet, mean and variance for the color vector matrix
-                  shape: batch x 3 x ns
-        im_blurry: blurry image, shape: batch x channel x H x W
-        im_gt: ground truth clean image, mean of prior p(x), shape: batch x channle x H x W
-        kernel_gt: ground truth kernel, mode of Dirichlet, shape: batch x kernel_size x kernel_size
-        alpha2: variance of prior p(x), Gaussian, scalar
-        beta2: variance of p(y|k,x), Gaussian, scalar
+        out_MNet_mean: output of KernelNet, mean for the color vector matrix
+            shape: batch x 3 x ns
+        out_MNet_var: output of KernelNet, variance for the color vector matrix
+            shape: batch x 3 x ns
+        y: OD image, shape: batch x 3 x H x W
     Returns:
-        negative ELBO
+        loss
     """
     # clip bound
     log_max = log(1e4)
     log_min = log(1e-10)
 
+    mRui_h = mR[:,0,:,0]
+    mRui_e = mR[:,0, :, 1]
 
+    mu_h = out_MNet_mean[:, :, 0]
+    mu_e = out_MNet_mean[:, :, 1]  
 
-    mR_h=mR[:,0,:,0] #####[[0.6442, 0.7166, 0.2668]]
-    mR_e = mR[:,0, :, 1]  ####[[0.0928, 0.9541, 0.2831]]
+    sigma_h_sq = out_MNet_var[:, 0, 0].clamp(min=log_min, max=log_max)
+    sigma_e_sq = out_MNet_var[:, 0, 1].clamp(min=log_min, max=log_max)
 
+    # Loss beta
+    sigma_h_sq_div_sigmaRui_h_sq = torch.div(sigma_h_sq, sigmaRui_h_sq)
+    sigma_e_sq_div_sigmaRui_e_sq = torch.div(sigma_e_sq, sigmaRui_e_sq)
 
-    # KL Loss ######################################################################################################
-    # parameters predicted of Gaussian distribution q(vh|y)
-    m_h = out_MNet_mean[:, :,0]  # q(vh|y): m_h ##16,3
-    sigma_h2 = torch.exp(out_MNet_var[:, 0,0].clamp(min=log_min, max=log_max))   # q(vh|y): variance
-    sigma_h2 = sigma_h2.view(-1,1)
-    # sigma_h2= sigma_h2[:,0] #Using only one value
-    # KL divergence of Gauss distribution
-    sigma_h2_div_alpha_h2 = torch.div(sigma_h2, alpha_h2)
-    # print('Printintg')
-    # print(mR_h.size(),sigma_h2.size(), sigma_h2_div_alpha_h2.size())
-    kl_vh_gauss = 0.5 * torch.mean((m_h - mR_h) ** 2 / alpha_h2 + (sigma_h2_div_alpha_h2 - 1 - torch.log(sigma_h2_div_alpha_h2)))
-    # parameters predicted of Gaussian distribution q(ve|y)
-    m_e = out_MNet_mean[:, :,1] # q(ve|y): m_e ##16,3
-    sigma_e2 = torch.exp(out_MNet_var[:, 0,1].clamp(min=log_min, max=log_max))  # q(ve|y): variance#########16,3
-    sigma_e2= sigma_e2.view(-1,1)
-    # sigma_e2 = sigma_e2[0] #Using only one value
-    # KL divergence of Gauss distribution
-    sigma_e2_div_alpha_e2 = torch.div(sigma_e2, alpha_e2) ####16,3
-    kl_ve_gauss = 0.5 * torch.mean((m_e - mR_e) ** 2 / alpha_e2 + (sigma_e2_div_alpha_e2 - 1 - torch.log(sigma_e2_div_alpha_e2)))
-    kl_loss = (kl_vh_gauss + kl_ve_gauss)/2
+    loss_kl_h = (0.5/sigmaRui_h_sq) * torch.mean((mu_h - mRui_h) ** 2) - (3.0/2.0) * torch.sum( sigma_h_sq_div_sigmaRui_h_sq - torch.log(sigma_h_sq_div_sigmaRui_h_sq) - 1)
+    loss_kl_e = (0.5/sigmaRui_e_sq) * torch.mean((mu_e - mRui_e) ** 2) - (3.0/2.0) * torch.sum( sigma_e_sq_div_sigmaRui_e_sq - torch.log(sigma_e_sq_div_sigmaRui_e_sq) - 1)
+    
+    loss_kl = loss_kl_h + loss_kl_e
 
-    # OD ||Y-MC||
+    # Loss MSE
 
-    C = out_CNet.view(batch_size, 2, patch_size * patch_size)
-    od_img = torch.matmul(out_MNet_mean, C)  # B,3,4096
-    od_img = od_img.view(batch_size, 3, patch_size, patch_size)
+    batch_size, c, heigth, width = out_CNet.shape 
+    # heigth = width = patch_size
+    C_tensor = out_CNet.view(batch_size, 2, heigth * width)
+    od_img = torch.matmul(out_MNet_mean, C_tensor)  
+    od_img = od_img.view(batch_size, 3, heigth, width) # shape: (batch, 3, patch_size * patch_size)
 
-    mse = F.mse_loss(y, od_img)
+    sum_c_h_sq = torch.sum(out_CNet[:, 0, ]**2)
+    sum_c_e_sq = torch.sum(out_CNet[:, 1, ]**2)
 
-    loss =  mse + kl_loss
+    loss_mse = torch.linalg.norm(y - od_img)**2 + 3*(sum_c_e_sq**2)*(sigma_e_sq) + 3*(sum_c_h_sq**2)*(sigma_h_sq)
+    loss_mse = torch.sum(loss_mse)
 
-    return loss, mse, kl_loss, kl_vh_gauss, kl_ve_gauss
+    if pretraining:
+        loss = pre_mse*loss_mse + pre_kl*loss_kl
+    else:
+        loss = (1-theta)*loss_mse + theta*loss_kl
+
+    return loss, loss_mse, loss_kl, loss_kl_h, loss_kl_e
 
 

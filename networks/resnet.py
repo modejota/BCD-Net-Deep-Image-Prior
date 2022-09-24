@@ -16,15 +16,16 @@ class ResNet18IN(nn.Module):
         self.model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(2, 2), padding=(3, 3), bias=False)
 
         self.M_mean = nn.Sequential(
-            nn.ReLU(inplace=True),
+            nn.ReLU(inplace=False),
             nn.Linear(fc_hidden_dim, 2*kernel_size),
             nn.Sigmoid()
         )
 
         self.M_var = nn.Sequential(
-            nn.ReLU(inplace=True),
-            nn.Linear(fc_hidden_dim, 2*kernel_size),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=False),
+            #nn.Linear(fc_hidden_dim, 2*kernel_size),
+            nn.Linear(fc_hidden_dim, 2),
+            nn.ReLU(inplace=False)
         )
 
     def forward(self, x):
@@ -33,13 +34,15 @@ class ResNet18IN(nn.Module):
         x = F.instance_norm(x)
         x = self.model(x)
         mean = self.M_mean(x)
-        mean = mean.reshape(mean.size()[0],3,2)
+        #mean = mean.reshape(mean.size()[0], 3, 2)
+        mean = mean.view(mean.size()[0], 3, 2)
         l1 = torch.norm(mean, dim=2, keepdim=True)  # dims= 0 -batch_size, 1- row, 2- cols (norm across)
         l1_ = 1.0 / (l1 + 1e-10)
         # mean = mean * l1_
 
         var = self.M_var(x)
-        var = var.reshape(var.size()[0],3,2)
+        #var = var.reshape(var.size()[0], 3, 2)
+        var = var.view(var.size()[0], -1, 2)
 
         return mean, var
 
