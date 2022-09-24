@@ -9,7 +9,7 @@ def set_opts():
     parser.add_argument('--batch_size', type=int, default=32, help="Batch size of training, (default:4)")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample,  (default:256)")
     parser.add_argument('--epochs', type=int, default=3, help="Training epohcs")
-    parser.add_argument('-p', '--print_freq', type=int, default=20, help="Print frequence (default: 100)")
+    parser.add_argument('-p', '--print_freq', type=int, default=200, help="Print frequence (default: 100)")
     parser.add_argument('-s', '--save_model_freq', type=int, default=20, help="Save model frequence (default: 10)")
 
     # learning rate
@@ -36,6 +36,10 @@ def set_opts():
     #                     help="Path to save the test  kohler images")
     parser.add_argument('--train_data_path', default='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/', type=str, metavar='PATH',
                         help="Path to save the Camelyon dataset images") #/training/Toy
+    parser.add_argument('--n_samples', default=100000, type=int, metavar='PATH',
+                        help='Number of samples from the dataset')
+    parser.add_argument('--n_samples_val', default=10000, type=int, metavar='PATH',
+                        help='Number of samples from the validation dataset')
     # parser.add_argument('--data_realblur_path', default='./data/real_blur/', type=str, metavar='PATH',
     #                     help="Path to save the RealBlur dataset images")
     parser.add_argument('--pre_kernel_path', default='', type=str, metavar='PATH',

@@ -120,6 +120,11 @@ def main():
             # toc2=time.time()
             # print(f'This iter take time {toc2 - tic2:.2f} s.')
 
+            if (ii + 1) % args.print_freq == 0:
+                print('Epoch', epoch, '[',ii, num_iter_per_epoch,']',
+                      'loss', round(loss_epoch, 3), 'mse_loss', round(mse_epoch, 3), 'kl_loss', round(kl_epoch, 3),
+                       sep=',')
+
         # Validation
         with torch.no_grad():
             cnet.eval()
@@ -140,7 +145,7 @@ def main():
         #     print('Validation',epoch, val_loss_epoch, val_mse_epoch, val_kl_epoch )
 
         #Log
-        print('Epoch', epoch,
+        print('Completed Epoch', epoch,
               'loss', round(loss_epoch, 3), 'mse_loss', round(mse_epoch, 3), 'kl_loss', round(kl_epoch, 3),
               'val_loss', round(val_loss_epoch, 3), 'val_mse_loss', round(val_mse_epoch, 3), 'val_kl_loss',
               round(val_kl_epoch, 3), sep=',')

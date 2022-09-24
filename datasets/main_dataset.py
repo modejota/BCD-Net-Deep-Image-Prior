@@ -1,15 +1,15 @@
 import torch
 from torch.utils.data import DataLoader
-from datasets.Camelyon_dataset import CamelyonDataset
+from datasets.Camelyon_dataset import CamelyonDataset, CamelyonValDataset
 
 def get_dataloaders(args):
     train_centers=[0,2,4]
     test_centers=[1,3]
-    train_dataset= CamelyonDataset(args.train_data_path,train_centers,patch_size=args.patch_size)
+    train_dataset= CamelyonDataset(args.train_data_path,train_centers,patch_size=args.patch_size, n_samples=args.n_samples)
 
     train_dataloader = DataLoader(train_dataset,batch_size=args.batch_size, shuffle=True)
 
-    test_dataset = CamelyonDataset(args.train_data_path,test_centers, patch_size=args.patch_size)
+    test_dataset = CamelyonDataset(args.train_data_path,test_centers, patch_size=args.patch_size, n_samples=args.n_samples_val)
 
     test_dataloader = DataLoader(test_dataset, batch_size=args.batch_size, shuffle=True)
 
