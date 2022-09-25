@@ -108,6 +108,8 @@ def set_opts_jp():
     parser['print_freq'] = 1
     parser['save_model_freq'] = 20
 
+    parser["val_props"] = 0.1
+
     parser['lr_C'] = 1e-4
     parser['lr_M'] = 1e-4
     parser['gamma'] = 0.1

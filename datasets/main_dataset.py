@@ -9,12 +9,12 @@ def get_dataloaders(args, val_prop = 0.2):
 
     dataset = CamelyonDataset(args.train_data_path,train_centers,patch_size=args.patch_size)
     len_ds = len(dataset)
-    len_val = int(args.val_prop * len_ds)
+    len_val = int(val_prop * len_ds)
     len_train = len_ds - len_val
     train_dataset, val_dataset = random_split(dataset, [len_train, len_val])
     
     #train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=True)
-    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers)
     val_dataloader = DataLoader(val_dataset, batch_size=args.batch_size, shuffle=False)
 
     test_dataset = CamelyonDataset(args.train_data_path, test_centers, patch_size=args.patch_size)
