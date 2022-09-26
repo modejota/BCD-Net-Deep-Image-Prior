@@ -32,7 +32,7 @@ class CamelyonDataset(Dataset):
         # print('patch list len:',len(image_list))
         # return image_list
         OD_img_list = []
-        n_samples = 100000  # Desired size for the dataset, you can change this
+        # n_samples = 100000  # Desired size for the dataset, you can change this
         #         camelyon_dir='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/'
         # train_centers = [0, 2, 4]  # This will take images from centers 0, 2 and 4
         tumor_patches_ids = []

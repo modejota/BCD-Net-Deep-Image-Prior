@@ -8,9 +8,9 @@ def set_opts():
     # trainning settings
     parser.add_argument('--batch_size', type=int, default=32, help="Batch size of training, (default:4)")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample,  (default:256)")
-    parser.add_argument('--epochs', type=int, default=3, help="Training epohcs")
+    parser.add_argument('--epochs', type=int, default=100, help="Training epochs")
     parser.add_argument('-p', '--print_freq', type=int, default=200, help="Print frequence (default: 100)")
-    parser.add_argument('-s', '--save_model_freq', type=int, default=20, help="Save model frequence (default: 10)")
+    parser.add_argument('-s', '--save_model_freq', type=int, default=5, help="Save model frequence (default: 10)")
 
     # learning rate
     parser.add_argument('--lr_C', type=float, default=1e-4, help="Initialized learning rate of CNet, (default: 1e-4)")

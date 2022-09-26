@@ -82,7 +82,7 @@ def main():
 
 
 
-    print('Training start:', datetime.now())
+    print('Training start:', datetime.datetime.now())
     for epoch in range(args.epoch_start, args.epochs):
         tic = time.time()
         loss_epoch, mse_epoch, kl_epoch = 0, 0, 0
