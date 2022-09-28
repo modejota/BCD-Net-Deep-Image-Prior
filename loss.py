@@ -2,6 +2,46 @@ import torch
 from math import pi, log
 import torch.nn.functional as F
 
+
+def loss_BCD(out_Cnet, out_Mnet_mean, out_Mnet_var, Y, sigmaRui_sq, MR, theta=0.5, pretraining=False, pre_kl=1e2, pre_mse=1e-2):
+    """
+    Args:
+        out_CNet: output of CNet, estimation of the separated concentrations in the image, one layer for each stain,
+            shape: batch x 2 x H x W
+        out_MNet_mean: output of MNet, mean for the color vector matrix
+            shape: batch x 3 x ns
+        out_MNet_var: output of MNet, variance for the color vector matrix
+            shape: batch x 3 x ns
+        Y: OD image, shape: batch x 3 x H x W
+        sigma_s2: 
+        MR:
+        patch_size:
+    Returns:
+        loss
+    """
+    
+    term_kl1 = (torch.norm(out_Mnet_mean - MR, dim=1) ** 2) / (2.0 * sigmaRui_sq)
+    term_kl2 = (3 / 2) * (out_Mnet_var / sigmaRui_sq - torch.log(out_Mnet_var / sigmaRui_sq) - 1)
+    loss_kl = torch.sum(term_kl1 + term_kl2)
+    # print('loss kl:',loss_kl)
+
+    batch_size, c, heigth, width = out_Cnet.shape 
+    patch_size = heigth # heigth = width = patch_size
+    Cflat = out_Cnet.view(-1, 2, patch_size * patch_size)
+    Y_rec = torch.matmul(out_Mnet_mean, Cflat)
+    Y_rec = Y_rec.view(batch_size, 3, patch_size, patch_size)
+    term_mse1 = torch.sum(torch.norm(Y - Y_rec, dim=1) ** 2)
+    term_mse2 = torch.sum(torch.matmul(3 * out_Mnet_var[0], Cflat[0] ** 2))
+    loss_mse = term_mse1 + term_mse2
+    # print('loss mse:',loss_mse)
+
+    if pretraining:
+        loss = pre_kl * loss_kl + pre_mse * loss_mse
+    else:
+        loss = (1-theta)*loss_mse + theta*loss_kl
+
+    return loss, loss_kl, loss_mse
+
 def loss_fn(out_CNet, out_MNet_mean, out_MNet_var, y, mR, sigmaRui_h_sq, sigmaRui_e_sq, theta=0.5, pretraining=False, pre_kl=1e2, pre_mse=1e-2):
     """
     Args:

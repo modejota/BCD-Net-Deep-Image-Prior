@@ -12,8 +12,8 @@ from utils.utils_imgs import AverageMeter
 from math import pi, log
 from datasets.deconvolution_main_dataset import get_dataloaders
 from loss_norm import loss_fn
-from networks.dnet import get_dnet
-from networks.knet import get_knet
+from networks.cnet import get_dnet
+from networks.mnet import get_knet
 from options4 import set_opts
 from torch.distributions import  Normal
 import tensorflow as tf

@@ -15,8 +15,8 @@ from PIL import Image
 from matplotlib import pyplot as plt
 import time
 from loss_norm import loss_fn
-from networks.dnet import get_dnet
-from networks.knet import get_knet
+from networks.cnet import get_dnet
+from networks.mnet import get_knet
 from scipy.io import savemat
 from options2 import set_opts
 import scipy.io

@@ -1,8 +1,8 @@
 import torch
 import torch.nn as nn
 
-from networks.dnet import get_dnet
-from networks.knet import get_knet
+from networks.cnet import get_dnet
+from networks.mnet import get_knet
 
 
 class VDBNet(nn.Module):

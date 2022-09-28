@@ -11,8 +11,8 @@ from torch.utils.tensorboard import SummaryWriter
 from utils.utils_metric import batch_PSNR, batch_SSIM
 from datasets.deblur_main_dataset import get_dataloaders
 from loss import loss_fn
-from networks.dnet import get_dnet
-from networks.knet import get_knet
+from networks.cnet import get_dnet
+from networks.mnet import get_knet
 from options import set_opts
 
 

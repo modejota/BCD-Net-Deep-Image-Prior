@@ -11,7 +11,7 @@ import glob
 from datasets.Camelyon_dataset import CamelyonDataset
 from datasets.main_dataset import get_dataloaders
 from torch.utils.data import DataLoader
-from networks.dnet import get
+from networks.cnet import get
 
 # Press the green button in the gutter to run the script.
 if __name__ == '__main__':

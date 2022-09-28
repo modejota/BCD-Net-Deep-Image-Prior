@@ -36,13 +36,13 @@ class ResNet18IN(nn.Module):
         mean = self.M_mean(x)
         #mean = mean.reshape(mean.size()[0], 3, 2)
         mean = mean.view(mean.size()[0], 3, 2)
-        l1 = torch.norm(mean, dim=2, keepdim=True)  # dims= 0 -batch_size, 1- row, 2- cols (norm across)
+        l1 = torch.norm(mean, dim=1, keepdim=True) 
         l1_ = 1.0 / (l1 + 1e-10)
-        # mean = mean * l1_
+        mean = mean * l1_
 
-        var = self.M_var(x)
+        var = self.M_var(x) + 1e-10
         #var = var.reshape(var.size()[0], 3, 2)
-        var = var.view(var.size()[0], -1, 2)
+        var = var.view(var.size()[0], 1, 2)
 
         return mean, var
 

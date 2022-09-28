@@ -95,8 +95,8 @@ class UNet(nn.Module):
         self.final_conv = nn.Sequential(*[
             nn.Conv2d(nc[0], 16, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(0.2, True),
-            nn.Conv2d(16, out_nc, kernel_size=3, stride=1, padding=1),
-            nn.ReLU(inplace=True)
+            nn.Conv2d(16, out_nc, kernel_size=3, stride=1, padding=1)
+            #nn.ReLU(inplace=True)
         ])
 
     def forward(self, x, kernel=None):
@@ -115,7 +115,7 @@ class UNet(nn.Module):
 
         out = self.final_conv(out)
         if self.learn_residual:
-            out[:, :2, :, :] = out[:, :2, :, :] + x
+            out[:, :3, :, :] = out[:, :3, :, :] + x
         return out
 
 
