@@ -130,5 +130,7 @@ dmypy.json
 
 events.out.tfevents.*
 
+.idea/*
+
 lightning_logs/*
 checkpoints/*
