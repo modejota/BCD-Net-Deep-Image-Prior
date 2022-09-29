@@ -101,14 +101,19 @@ def set_opts_jp():
 
     parser = {}
 
-    parser['batch_size'] = 2
+    #parser['data_path'] = '/data/BasesDeDatos/Camelyon/Camelyon17/training/Toy/'
+    parser['data_path'] = '/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/'
+    parser['log_dir'] = './log'
+    parser['save_model_dir'] = './weights/'
+    parser['save_model_freq'] = 20
+
+    parser['batch_size'] = 16
     parser['patch_size'] = 128
     parser['epochs'] = 5
     parser['pretraining_epochs'] = 1
-    parser['print_freq'] = 1
-    parser['save_model_freq'] = 20
+    parser['num_workers'] = 64
 
-    parser["val_props"] = 0.1
+    parser["val_prop"] = 0.1
 
     parser['lr_C'] = 1e-4
     parser['lr_M'] = 1e-4
@@ -117,14 +122,6 @@ def set_opts_jp():
     parser['clip_grad_C'] = 1e4
     parser['clip_grad_M'] = 1e5
 
-    parser['train_data_path'] = '/data/BasesDeDatos/Camelyon/Camelyon17/training/Toy/'
-    parser['pre_kernel_path'] = ''
-
-    parser['log_dir'] = './log'
-    parser['model_dir'] = './model'
-    parser['resume'] = ''
-    parser['num_workers'] = 8
-
     parser['sigmaRui_h_sq'] = 1e-3
     parser['sigmaRui_e_sq'] = 1e-3
 
@@ -132,22 +129,8 @@ def set_opts_jp():
     parser['pre_kl'] = 1e2
     parser['pre_mse'] = 1e-2
 
-    parser['code_len'] = 30
     parser['CNet'] = 'unet_6'
     parser['MNet'] = 'resnet_18_in'
-
-    parser['max_size'] = 3
-    parser['dirichlet_para_stretch'] = 20000
-    parser['prekernels'] = ""
-
-    parser['nrow'] = 8
-    parser['epoch_start_test'] = 20
-    parser['skip_grad'] = 1e6
-
-    parser['warm_up_epoch'] = 0
-    parser['kl_dir_weight'] = 1.0
-
-    parser['run_mode'] = "center_0"
 
     args = argparse.Namespace(**parser)
     return args

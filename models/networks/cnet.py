@@ -1,5 +1,4 @@
-import torch
-from networks.unet import UNet
+from .unet import UNet
 
 def get_cnet(net_name):
     if net_name == 'unet_9':

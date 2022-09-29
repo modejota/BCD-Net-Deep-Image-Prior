@@ -11,7 +11,7 @@ from torch.utils.tensorboard import SummaryWriter
 # import scipy.io
 # from utils.utils_metric import batch_PSNR, batch_SSIM
 from datasets.main_dataset import get_dataloaders
-from loss import loss_BCD
+from models.loss import loss_BCD
 from networks.cnet import get_cnet
 from networks.mnet import get_mnet
 from options import set_opts

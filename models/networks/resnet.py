@@ -9,9 +9,11 @@ class ResNet18IN(nn.Module):
     def __init__(self, kernel_size, fc_hidden_dim=50):
         super().__init__()
         self.kernel_size = kernel_size
-        self.model = resnet.ResNet(resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
-                      groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                      norm_layer=nn.InstanceNorm2d)
+        self.model = resnet.ResNet(
+                                    resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
+                                    groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                                    norm_layer=nn.InstanceNorm2d
+                                    )
 
         self.model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(2, 2), padding=(3, 3), bias=False)
 
@@ -34,7 +36,6 @@ class ResNet18IN(nn.Module):
         x = F.instance_norm(x)
         x = self.model(x)
         mean = self.M_mean(x)
-        #mean = mean.reshape(mean.size()[0], 3, 2)
         mean = mean.view(mean.size()[0], 3, 2)
         l1 = torch.norm(mean, dim=1, keepdim=True) 
         l1_ = 1.0 / (l1 + 1e-10)

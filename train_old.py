@@ -10,7 +10,7 @@ from torch.utils.tensorboard import SummaryWriter
 import scipy.io
 from utils.utils_metric import batch_PSNR, batch_SSIM
 from datasets.deconvolution_main_dataset import get_dataloaders
-from loss import loss_fn
+from models.loss import loss_fn
 from networks.cnet import get_dnet
 from networks.mnet import get_knet
 from options import set_opts

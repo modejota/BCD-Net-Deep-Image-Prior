@@ -1,5 +1,4 @@
-import torch
-from networks.resnet import ResNet18IN #,ResNet18BN
+from .resnet import ResNet18IN #,ResNet18BN
 
 def get_mnet(net_name, kernel_size):
     if net_name == "resnet_18_in":

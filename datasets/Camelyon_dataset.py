@@ -8,23 +8,23 @@ import torchvision.transforms.functional as TVTF
 from pathlib import Path
 import random
 import glob
-from utils.utils_imgs import npimg_random_augmentation, tensorimg_add_noise,tensorimg_random_crop_patch, npimg_random_crop_patch
+from utils.utils_imgs import npimg_random_augmentation, tensorimg_add_noise, tensorimg_random_crop_patch, npimg_random_crop_patch
 from utils.utils_BCD import np_rgb2od, normalize_to1
 
 
 class CamelyonDataset(Dataset):
-    def __init__(self, data_path, train_centers, patch_size, augment=False, add_noise=False):
+    def __init__(self, data_path, train_centers, patch_size, n_samples=None):
         super().__init__()
         data_root_path = data_path
         self.train_centers=train_centers
         self.patch_size = patch_size
-        self.augment = augment
-        self.add_noise = add_noise
+        self.n_samples = n_samples
+
         self.image_list = self.scan_files(data_root_path, train_centers)
         self.mR = torch.tensor([[[0.6442, 0.0928],
                                  [0.7166, 0.9541],
                                  [0.2668, 0.2831]]])
-        # print('Reference matrix',self.mR,self.mR.size())
+        
 
     def scan_files(self, data_root_path, train_centers):
         # /center_*/patient_*_node_*/annotated/*.jpg
@@ -32,9 +32,7 @@ class CamelyonDataset(Dataset):
         # print('patch list len:',len(image_list))
         # return image_list
         OD_img_list = []
-        n_samples = 200000  # Desired size for the dataset, you can change this
-        # camelyon_dir='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/'
-        # train_centers = [0, 2, 4]  # This will take images from centers 0, 2 and 4
+
         tumor_patches_ids = []
         normal_patches_ids = []
         for c in train_centers:
@@ -44,11 +42,12 @@ class CamelyonDataset(Dataset):
         # ALL PATCHES
         train_patches = tumor_patches_ids + normal_patches_ids
         print('Available patches:', len(train_patches))
-        if n_samples > len(train_patches):
+        if self.n_samples is not None:
+            if self.n_samples < len(train_patches):
+                OD_img_list = random.sample(train_patches, self.n_samples)
+        else:
             random.seed(42)  # This is important to choose always the same patches
             OD_img_list = train_patches
-        else:
-            OD_img_list = random.sample(train_patches, n_samples)
         return OD_img_list
 
     def __len__(self):

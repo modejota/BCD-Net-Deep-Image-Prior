@@ -20,18 +20,23 @@ def loss_BCD(out_Cnet, out_Mnet_mean, out_Mnet_var, Y, sigmaRui_sq, MR, theta=0.
         loss
     """
     
-    term_kl1 = (torch.norm(out_Mnet_mean - MR, dim=1) ** 2) / (2.0 * sigmaRui_sq)
-    term_kl2 = (3 / 2) * (out_Mnet_var / sigmaRui_sq - torch.log(out_Mnet_var / sigmaRui_sq) - 1)
-    loss_kl = torch.sum(term_kl1 + term_kl2)
+    #out_Mnet_var_div_sigmaRui_sq = torch.stack([torch.div(out_Mnet_var, sigmaRui_sq[0]), torch.div(out_Mnet_var, sigmaRui_sq[1])], 2)
+    out_Mnet_var_div_sigmaRui_sq = torch.div(out_Mnet_var, sigmaRui_sq) # shape: (batch, 1, 2)
+
+    norm_mean_vecs = torch.sum(torch.pow(out_Mnet_mean - MR, 2), dim=[1,2]) # shape: (batch, 2)
+    term_kl1 = 0.5 * torch.sum(norm_mean_vecs / sigmaRui_sq, dim=1) # shape: (batch,)
+    term_kl2 = (1.5) * torch.sum(out_Mnet_var_div_sigmaRui_sq - torch.log(out_Mnet_var_div_sigmaRui_sq) - 1, dim=[1,2]) # shape: (batch,)
+    loss_kl = torch.mean(term_kl1 + term_kl2) #shape: (1,)
     # print('loss kl:',loss_kl)
 
     batch_size, c, heigth, width = out_Cnet.shape 
     patch_size = heigth # heigth = width = patch_size
-    Cflat = out_Cnet.view(-1, 2, patch_size * patch_size)
-    Y_rec = torch.matmul(out_Mnet_mean, Cflat)
-    Y_rec = Y_rec.view(batch_size, 3, patch_size, patch_size)
-    term_mse1 = torch.sum(torch.norm(Y - Y_rec, dim=1) ** 2)
-    term_mse2 = torch.sum(torch.matmul(3 * out_Mnet_var[0], Cflat[0] ** 2))
+    Cflat = out_Cnet.view(-1, 2, patch_size * patch_size) #shape: (batch, 2, patch_size * patch_size)
+    Y_rec = torch.matmul(out_Mnet_mean, Cflat) #shape: (batch, 3, patch_size * patch_size)
+    Y_rec = Y_rec.view(batch_size, 3, patch_size, patch_size) #shape: (batch, 3, patch_size, patch_size)
+    term_mse1 = torch.mean(torch.sum(torch.pow(Y - Y_rec, 2), dim=[1,2,3]) ) # shape: (1,)
+    Cflat_swp = Cflat.permute(0, 2, 1) #shape: (batch, patch_size * patch_size, 2)
+    term_mse2 = 3.0 * torch.mean( torch.sum(torch.mul(out_Mnet_var, torch.pow(Cflat_swp, 2)), dim=[1,2]) ) # shape: (1,)
     loss_mse = term_mse1 + term_mse2
     # print('loss mse:',loss_mse)
 
