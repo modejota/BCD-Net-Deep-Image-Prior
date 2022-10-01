@@ -3,7 +3,7 @@ from math import pi, log
 import torch.nn.functional as F
 
 
-def loss_BCD(out_Cnet, out_Mnet_mean, out_Mnet_var, Y, sigmaRui_sq, MR, theta=0.5, pretraining=False, pre_kl=1e2, pre_mse=1e-2):
+def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, theta=0.5):
     """
     Args:
         out_CNet: output of CNet, estimation of the separated concentrations in the image, one layer for each stain,
@@ -29,21 +29,19 @@ def loss_BCD(out_Cnet, out_Mnet_mean, out_Mnet_var, Y, sigmaRui_sq, MR, theta=0.
     loss_kl = torch.mean(term_kl1 + term_kl2) #shape: (1,)
     # print('loss kl:',loss_kl)
 
-    batch_size, c, heigth, width = out_Cnet.shape 
-    patch_size = heigth # heigth = width = patch_size
+    #batch_size, c, heigth, width = out_Cnet.shape 
+    #patch_size = heigth # heigth = width = patch_size
+    patch_size = out_Cnet.shape[2]
     Cflat = out_Cnet.view(-1, 2, patch_size * patch_size) #shape: (batch, 2, patch_size * patch_size)
-    Y_rec = torch.matmul(out_Mnet_mean, Cflat) #shape: (batch, 3, patch_size * patch_size)
-    Y_rec = Y_rec.view(batch_size, 3, patch_size, patch_size) #shape: (batch, 3, patch_size, patch_size)
+    #Y_rec = torch.matmul(out_Mnet_mean, Cflat) #shape: (batch, 3, patch_size * patch_size)
+    #Y_rec = Y_rec.view(batch_size, 3, patch_size, patch_size) #shape: (batch, 3, patch_size, patch_size)
     term_mse1 = torch.mean(torch.sum(torch.pow(Y - Y_rec, 2), dim=[1,2,3]) ) # shape: (1,)
     Cflat_swp = Cflat.permute(0, 2, 1) #shape: (batch, patch_size * patch_size, 2)
     term_mse2 = 3.0 * torch.mean( torch.sum(torch.mul(out_Mnet_var, torch.pow(Cflat_swp, 2)), dim=[1,2]) ) # shape: (1,)
     loss_mse = term_mse1 + term_mse2
     # print('loss mse:',loss_mse)
-
-    if pretraining:
-        loss = pre_kl * loss_kl + pre_mse * loss_mse
-    else:
-        loss = (1-theta)*loss_mse + theta*loss_kl
+        
+    loss = (1-theta)*loss_mse + theta*loss_kl
 
     return loss, loss_kl, loss_mse
 

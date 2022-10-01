@@ -203,24 +203,3 @@ def tensor_patch_to_img(patch, mask, step_h = 70, step_w = 70):
             img[:, :, ind_H: ind_H + patch_h, ind_W: ind_W + patch_w] = img[:, :, ind_H: ind_H + patch_h, ind_W: ind_W + patch_w] + patch[index]
             index += 1
     return img / mask
-
-def gopro_to_pair_patch(img1, img2):
-    # img 1280 x 720 : B x C x H x W --> NB x C x patch_H x patch_W
-    # make sur B == 1 and im1.shape == img2.shape
-    B, C, H, W = img1.shape
-    patch_H = 360
-    patch_W = 320
-    n_H_patch = 4
-    n_W_patch = 8
-    out1 = torch.zeros(n_W_patch * n_H_patch, C, patch_H, patch_W).to(img1.device)
-    out2 = torch.zeros(n_W_patch * n_H_patch, C, patch_H, patch_W).to(img1.device)
-    num = 0
-    for H_i in range(n_H_patch):
-        for W_i in range(n_W_patch):
-            ind_H = H_i * patch_H
-            ind_W = W_i * patch_W
-            patch1 = img1[:, :, ind_H: ind_H + patch_H, ind_W: ind_W + patch_W]
-            out1[num] = patch1.squeeze(0)
-            patch2 = img2[:, :, ind_H: ind_H + patch_H, ind_W: ind_W + patch_W]
-            out2[num] = patch2.squeeze(0)
-    return out1, out2
