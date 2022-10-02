@@ -59,7 +59,6 @@ class OD_Dataset(torch.utils.data.Dataset):
         return img, od_img, self.mR
 
 class CamelyonDataset(OD_Dataset):
-       
 
     def scan_files(self):
 
@@ -87,5 +86,10 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
     def scan_files(self):
         patches_ids = []
         for organ in self.organ_list:
-            patches_ids = patches_ids + glob.glob(self.data_path + organ + '/*/*/*.png')
+            patches_ids = patches_ids + glob.glob(self.data_path + "RGB_images/" + organ + '/*/*/*.png')
+        
+        #ground_truth_ids = []
+        #for organ in self.organ_list:
+        #    patches_ids = patches_ids + glob.glob(self.data_path + "GroundTruth/" + organ + '/*/*/*.png')
+
         return patches_ids
