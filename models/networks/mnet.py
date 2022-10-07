@@ -33,15 +33,13 @@ class MNet(nn.Module):
         # x = x[:, 0, :, :].unsqueeze(1)  # B x 1 X H x W
         x = F.instance_norm(x)
         x = self.model(x)
-        mean = self.M_mean(x)
-        mean = mean.view(mean.size()[0], 3, 2)
-        l1 = torch.norm(mean, dim=1, keepdim=True) 
-        l1_ = 1.0 / (l1 + 1e-10)
-        mean = mean * l1_
+        mean = self.M_mean(x) # shape (batch_size, 2*kernel_size)
+        mean = mean.view(mean.shape[0], 3, 2)
+        l1 = torch.norm(mean, dim=1, keepdim=True) # shape (batch_size, )
+        mean = torch.div(mean , l1 + 1e-10)
 
-        var = self.M_var(x) + 1e-10
-        #var = var.reshape(var.size()[0], 3, 2)
-        var = var.view(var.size()[0], 1, 2)
+        var = self.M_var(x) + 1e-10 # shape (batch_size, 2)
+        var = var.view(var.shape[0], 1, 2)
 
         return mean, var
 

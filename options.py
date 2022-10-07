@@ -1,5 +1,5 @@
 import argparse
-import random
+import numpy as np
 
 
 def set_train_opts():
@@ -34,8 +34,8 @@ def set_train_opts():
     parser.add_argument('--lr_decay', type=float, default=0.1, help="Decaying rate for the learning rate (default: 0.1)")
 
     # How to clip the gradients norm during the training
-    parser.add_argument('--clip_grad_cnet', type=float, default=1e5, help="Value to clip the gradients of CNet, (default: 1e4)")
-    parser.add_argument('--clip_grad_mnet', type=float, default=1e5, help="Value to clip the gradients of MNet, (default: 1e5)")
+    parser.add_argument('--clip_grad_cnet', type=float, default=np.Inf, help="Value to clip the gradients of CNet, (default: Inf)")
+    parser.add_argument('--clip_grad_mnet', type=float, default=np.Inf, help="Value to clip the gradients of MNet, (default: Inf)")
    
     # hyper-parameters
     parser.add_argument('--sigmaRui_h_sq', default=0.05, type=float, help="Prior hematoxylin variance of M (default: 0.05)")

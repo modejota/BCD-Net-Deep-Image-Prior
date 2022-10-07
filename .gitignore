@@ -134,3 +134,5 @@ events.out.tfevents.*
 
 lightning_logs/*
 checkpoints/*
+
+*.pt

@@ -95,8 +95,8 @@ class UNet(nn.Module):
         self.final_conv = nn.Sequential(*[
             nn.Conv2d(nc[0], 16, kernel_size=3, stride=1, padding=1),
             nn.LeakyReLU(0.2, True),
-            nn.Conv2d(16, out_nc, kernel_size=3, stride=1, padding=1)
-            #nn.ReLU(inplace=True)
+            nn.Conv2d(16, out_nc, kernel_size=3, stride=1, padding=1), 
+            #nn.ReLU(inplace=False)
         ])
 
     def forward(self, x, kernel=None):
