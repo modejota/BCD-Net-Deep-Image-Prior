@@ -10,7 +10,7 @@ import torchvision.transforms.functional as TVTF
 from scipy.io import loadmat
 
 from utils.utils_imgs import npimg_random_crop_patch
-from utils.utils_BCD import rgb2od_np, normalize_to1, direct_deconvolution_np, C_to_RGB_np
+from utils.utils_BCD import rgb2od_np, normalize_to1, direct_deconvolution_np
 
 class OD_Dataset(torch.utils.data.Dataset):
     def __init__(self, data_path, centers, patch_size=224, n_samples=None):
@@ -64,7 +64,6 @@ class OD_Dataset(torch.utils.data.Dataset):
 class CamelyonDataset(OD_Dataset):
 
     def scan_files(self):
-
         tumor_patches_ids = []
         normal_patches_ids = []
         for center in self.centers:

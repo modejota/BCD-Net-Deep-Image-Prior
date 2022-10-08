@@ -10,7 +10,7 @@ from .networks.cnet import get_cnet
 from .networks.mnet import get_mnet
 
 from utils.callbacks import CallbacksList
-from utils.utils_BCD import C_to_RGB_torch, undo_normalization, od2rgb_torch
+from utils.utils_BCD import C_to_OD_torch
 
 
 class DVBCDModel():
@@ -75,8 +75,8 @@ class DVBCDModel():
         Cnet_opt = torch.optim.Adam(self.cnet.parameters(), lr=self.lr_cnet)
         Mnet_opt = torch.optim.Adam(self.mnet.parameters(), lr=self.lr_mnet)
         
-        Cnet_sch = None
-        Mnet_sch = None
+        Cnet_sch = torch.optim.lr_scheduler.ReduceLROnPlateau(Cnet_opt, mode='min', factor=self.lr_decay, patience=5, verbose=True)
+        Mnet_sch = torch.optim.lr_scheduler.ReduceLROnPlateau(Mnet_opt, mode='min', factor=self.lr_decay, patience=5, verbose=True)
         #Cnet_sch = torch.optim.lr_scheduler.StepLR(Cnet_opt, step_size=20, gamma=self.lr_decay)
         #Mnet_sch = torch.optim.lr_scheduler.StepLR(Mnet_opt, step_size=20, gamma=self.lr_decay)
 
@@ -114,12 +114,6 @@ class DVBCDModel():
 
         Mnet_opt.step()
         Cnet_opt.step()
-
-        Cnet_sch, Mnet_sch = self.lr_schedulers
-        if Cnet_sch is not None:
-            Cnet_sch.step()
-        if Mnet_sch is not None:
-            Mnet_sch.step()
 
         #Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
@@ -184,13 +178,19 @@ class DVBCDModel():
                         pbar.set_postfix({k : str(round(np.mean(v),5)) for k, v in tmp_val_log_dic.items()})
                     else:
                         pbar.set_postfix({k : str(round(v, 4)) for k, v in m_dic.items()}) 
-            
+
             for tmp_dict in [tmp_train_log_dic, tmp_val_log_dic]:
                 for k, v in tmp_dict.items():
                     if k not in epoch_log_dic.keys():
                         epoch_log_dic[k] = []
                     epoch_log_dic[k] = np.mean(v)
                     tmp_dict[k] = []
+
+            Cnet_sch, Mnet_sch = self.lr_schedulers
+            if Cnet_sch is not None:
+                Cnet_sch.step(epoch_log_dic['val_loss'])
+            if Mnet_sch is not None:
+                Mnet_sch.step(epoch_log_dic['val_loss'])
 
             self.callbacks_list.on_epoch_end(epoch, epoch_log_dic)
             if self.stop_training:
@@ -231,32 +231,31 @@ class DVBCDModel():
     
     def _shared_eval_step_GT(self, batch, batch_idx, prefix):
 
-        Y_RGB, Y, MR, C_GT, M_GT = batch
-        Y = Y.to(self.device)
+        Y_RGB, Y_od, MR, C_GT, M_GT = batch
+        Y_od = Y_od.to(self.device)
         MR = MR.to(self.device)
         C_GT = C_GT.to(self.device)
         M_GT = M_GT.to(self.device)
 
-        out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec = self.forward(Y) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
+        out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec = self.forward(Y_od) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_od, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
 
-        psnr_rec = self.compute_psnr(Y, Y_rec)
-        ssim_rec = self.compute_ssim(Y, Y_rec)
+        psnr_rec = self.compute_psnr(Y_od, Y_rec)
+        ssim_rec = self.compute_ssim(Y_od, Y_rec)
 
-        C_RGB = C_to_RGB_torch(out_Cnet, out_Mnet_mean)
-        H_RGB = C_RGB[:, 0, :, :]
-        E_RGB = C_RGB[:, 1, :, :]
+        C_OD = C_to_OD_torch(out_Cnet, out_Mnet_mean)
+        H_OD = C_OD[:, 0, :, :]
+        E_OD = C_OD[:, 1, :, :]
 
-        C_GT_RGB = C_to_RGB_torch(C_GT, M_GT)
-        H_RGB_GT =  C_GT_RGB[:, 0, :, :]
-        E_RGB_GT =  C_GT_RGB[:, 1, :, :]
+        C_GT_OD = C_to_OD_torch(C_GT, M_GT)
+        H_OD_GT =  C_GT_OD[:, 0, :, :]
+        E_OD_GT =  C_GT_OD[:, 1, :, :]
 
-        psnr_gt_h = self.compute_psnr(H_RGB, H_RGB_GT)
-        psnr_gt_e = self.compute_psnr(E_RGB, E_RGB_GT)
-        ssim_gt_h = self.compute_ssim(H_RGB, H_RGB_GT)
-        ssim_gt_e = self.compute_ssim(E_RGB, E_RGB_GT)
-
+        psnr_gt_h = self.compute_psnr(H_OD, H_OD_GT)
+        psnr_gt_e = self.compute_psnr(E_OD, E_OD_GT)
+        ssim_gt_h = self.compute_ssim(H_OD, H_OD_GT)
+        ssim_gt_e = self.compute_ssim(E_OD, E_OD_GT)
 
         return {
             f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item(), 
@@ -273,11 +272,15 @@ class DVBCDModel():
         with torch.no_grad():
             for batch_idx, batch in pbar:
                 m_dic = self.test_step(batch, batch_idx)
-                pbar.set_postfix(m_dic)
-                for k in m_dic.keys():
+                pbar.set_postfix({k : str(round(v, 4)) for k, v in m_dic.items()})
+                for k, v in m_dic.items():
                     if k not in tmp_metrics_dic.keys():
                         tmp_metrics_dic[k] = []
-                    tmp_metrics_dic[k].append(m_dic[k])
+                    tmp_metrics_dic[k].append(v)
+                if batch_idx == (len(test_dataloader) - 1):
+                    pbar.set_postfix({k : str(round(np.mean(v),5)) for k, v in tmp_metrics_dic.items()})
+                else:
+                    pbar.set_postfix({k : str(round(v, 4)) for k, v in m_dic.items()}) 
         return {k : np.mean(v) for k, v in tmp_metrics_dic.items()}
     
     def evaluate_GT(self, test_dataloader):
@@ -288,11 +291,16 @@ class DVBCDModel():
         with torch.no_grad():
             for batch_idx, batch in pbar:
                 m_dic = self.test_step_GT(batch, batch_idx)
-                pbar.set_postfix(m_dic)
-                for k in m_dic.keys():
+                pbar.set_postfix({k : str(round(v, 4)) for k, v in m_dic.items()})
+                for k, v in m_dic.items():
                     if k not in tmp_metrics_dic.keys():
                         tmp_metrics_dic[k] = []
-                    tmp_metrics_dic[k].append(m_dic[k])
+                    tmp_metrics_dic[k].append(v)
+
+                if batch_idx == (len(test_dataloader) - 1):
+                    pbar.set_postfix({k : str(round(np.mean(v),5)) for k, v in tmp_metrics_dic.items()})
+                else:
+                    pbar.set_postfix({k : str(round(v, 4)) for k, v in m_dic.items()}) 
         return {k : np.mean(v) for k, v in tmp_metrics_dic.items()}
     
     def compute_psnr(self, Y, Y_rec):
@@ -305,11 +313,17 @@ class DVBCDModel():
         return torch.nn.functional.mse_loss(Y_rec, Y, reduction='mean')
     
     def save(self, path):
-        name = path.split(".pt")[0]
-        torch.save(self.cnet.state_dict(), f"{name}_cnet.pt")
-        torch.save(self.mnet.state_dict(), f"{name}_mnet.pt")
+        rest = path.split("/")[0:-1]
+        name = path.split("/")[-1]
+        final_path_cnet = "/".join(rest) + f"/cnet_{name}"
+        final_path_mnet = "/".join(rest) + f"/mnet_{name}"
+        torch.save(self.cnet.state_dict(), final_path_cnet)
+        torch.save(self.mnet.state_dict(), final_path_mnet)
     
     def load(self, path):
-        name = path.split(".pt")[0]
-        self.cnet.load_state_dict(torch.load(f"{name}_cnet.pt"))
-        self.mnet.load_state_dict(torch.load(f"{name}_mnet.pt"))
+        rest = path.split("/")[0:-1]
+        name = path.split("/")[-1]
+        final_path_cnet = "/".join(rest) + f"/cnet_{name}"
+        final_path_mnet = "/".join(rest) + f"/mnet_{name}"
+        self.cnet.load_state_dict(torch.load(final_path_cnet))
+        self.mnet.load_state_dict(torch.load(final_path_mnet))

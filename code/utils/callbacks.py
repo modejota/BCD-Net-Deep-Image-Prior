@@ -73,7 +73,7 @@ class EarlyStopping(Callback):
     Early stops the training if validation loss doesn't improve after a given patience.
     Adapted from https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
-    def __init__(self, model, score_name, mode="min", patience=10, delta=0, path="", verbose=False):
+    def __init__(self, model, score_name, mode="min", patience=10, delta=0, path="", verbose=True):
         """
         Args:
             model: model to monitor
@@ -107,33 +107,55 @@ class EarlyStopping(Callback):
         if self.mode == "max":
             score = -logs[self.score_name]
         else:
-            score = -logs[self.score_name]
+            score = logs[self.score_name]
 
         if self.best_score is None:
             self.best_score = score
             #self.save_checkpoint(score)
-        elif score > self.best_score - self.delta:
+        elif score < self.best_score - self.delta:
+            self.best_score = score
+            self.save_checkpoint()
+            self.counter = 0
+        else:
             self.counter += 1
             if self.verbose:
-                print(f'EarlyStopping counter: {self.counter} out of {self.patience}.')
+                print(f'Early stopping counter: {self.counter} out of {self.patience}.')
             if self.counter >= self.patience:
-                #self.early_stop = True
                 self.model.stop_training = True
-                print(f"Early stopping in epoch {epoch}.")
-        else:
-            self.best_score = score
-            #self.save_checkpoint(score)
-            self.counter = 0
+                print(f"Reached max patience. Stopping training at epoch {epoch}.")            
 
-    def save_checkpoint(self, val_loss, model):
+    def save_checkpoint(self):
         '''
-        Saves model when validation score improves
+        Saves model
         '''
+        name = self.path + "best.pt"
+        self.model.save(name)
         if self.verbose:
-            print(f'Best score improved. Saving model...')
-        #torch.save(model.state_dict(), self.path)
-        model.save(self.path)
+            print(f'Best score improved. Model saved to {self.path}.')
     
+class ModelCheckpoint(Callback):
+    """
+    Saves model after each epoch.
+    """
+    def __init__(self, model, path, save_freq=10, verbose=True):
+        """
+        Args:
+            model: model to monitor
+            path (str): Path for the checkpoint to be saved to.
+            verbose (bool): If True, prints a message for each model saved.
+        """
+        self.model = model
+        self.path = path
+        self.verbose = verbose
+        self.save_freq = save_freq
+
+    def on_epoch_end(self, epoch, logs=None):
+        if epoch % self.save_freq == 0:
+            name = self.path + f"epoch{epoch}.pt"
+            self.model.save(name)
+            if self.verbose:
+                print(f"Model saved to {self.path}.")
+
 class History(Callback):
     def __init__(self):
         self.history = {}

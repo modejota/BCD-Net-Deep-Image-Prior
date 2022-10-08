@@ -35,7 +35,7 @@ def direct_deconvolution_torch(Y, M):
     ct = ct.reshape((ct.shape[0], h, w))
     return ct
 
-def C_to_RGB_np(C, M):
+def C_to_OD_np(C, M):
     """
     C: (bs, ns, h, w)
     M: (bs, 3, ns)
@@ -44,14 +44,14 @@ def C_to_RGB_np(C, M):
     if len (C.shape) == 3:
         C = C.unsqueeze(0)
         M = M.unsqueeze(0)
-    C_rgb = np.einsum('bcs, bswh -> bschw', M, C)
-    C_rgb = np.clip(od2rgb_np(C_rgb), 0, 255).astype(np.uint8)
-    C_rgb = C_rgb.transpose(0,1,3,4,2)
+    C_od = np.einsum('bcs, bswh -> bschw', M, C)
+    C_od = undo_normalization(C_od)
+    C_od = C_od.transpose(0,1,3,4,2)
     if C.shape[0]==1:
-        C_rgb = C_rgb.squeeze(0)
-    return C_rgb
+        C_od = C_od.squeeze(0)
+    return C_od
 
-def C_to_RGB_torch(C, M):
+def C_to_OD_torch(C, M):
     """
     C: (bs, ns, h, w)
     M: (bs, 3, ns)
@@ -60,6 +60,6 @@ def C_to_RGB_torch(C, M):
     if len (C.shape) == 3:
         C = C.unsqueeze(0)
         M = M.unsqueeze(0)
-    C_rgb = torch.einsum('bcs, bswh -> bschw', M, C)
-    C_rgb = torch.clamp(od2rgb_torch(C_rgb), 0, 255)
-    return C_rgb
+    C_od = torch.einsum('bcs, bswh -> bschw', M, C)
+    C_od = undo_normalization(C_od)
+    return C_od
