@@ -64,19 +64,34 @@ class OD_Dataset(torch.utils.data.Dataset):
 class CamelyonDataset(OD_Dataset):
 
     def scan_files(self):
-        tumor_patches_ids = []
-        normal_patches_ids = []
-        for center in self.centers:
-            tumor_patches_ids = tumor_patches_ids + glob.glob(self.data_path + 'center_' + str(center) + '/*/annotated/*.jpg')
-            normal_patches_ids = normal_patches_ids + glob.glob(self.data_path + 'center_' + str(center) + '/*/no_annotated/*.jpg')
+        
+        tumor_patches_dict = {c : [] for c in self.centers}
+        normal_patches_dict = {c : [] for c in self.centers}
 
-        # ALL PATCHES
-        patches_ids = tumor_patches_ids + normal_patches_ids
-        print('Available patches:', len(patches_ids))
+        for c in self.centers:
+            tumor_patches_dict[c] += glob.glob(self.data_path + 'center_' + str(c) + '/*/annotated/*.jpg')
+            normal_patches_dict[c] += glob.glob(self.data_path + 'center_' + str(c) + '/*/no_annotated/*.jpg')
+
+        num_available_patches = np.sum([len(tumor_patches_dict[c]) + len(normal_patches_dict[c]) for c in self.centers])
+        print('Available patches:', num_available_patches)
+        
+        patches_ids = []
         if self.n_samples is not None:
-            if self.n_samples < len(patches_ids):
-                random.seed(42)  # This is important to choose always the same patches
-                patches_ids = random.sample(patches_ids, self.n_samples)
+            if self.n_samples < num_available_patches:
+                random.seed(42)
+                n_samples_per_center = self.n_samples // len(self.centers)
+                for c in self.centers:
+                    patches_ids += random.sample(tumor_patches_dict[c], n_samples_per_center//2)
+                    patches_ids += random.sample(normal_patches_dict[c], n_samples_per_center//2)
+            else:
+                for c in self.centers:
+                    patches_ids += tumor_patches_dict[c]
+                    patches_ids += normal_patches_dict[c]
+        else:
+            for c in self.centers:
+                patches_ids += tumor_patches_dict[c]
+                patches_ids += normal_patches_dict[c]
+            
         return patches_ids
 
 class WSSBDatasetTest(OD_Dataset):

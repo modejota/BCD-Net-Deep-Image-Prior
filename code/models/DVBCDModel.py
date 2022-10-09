@@ -22,6 +22,11 @@ class DVBCDModel():
                 ):
         self.cnet = get_cnet(cnet_name)
         self.mnet = get_mnet(mnet_name, kernel_size=3)
+
+        if torch.cuda.device_count() > 1:
+            self.cnet = torch.nn.DataParallel(self.cnet)
+            self.mnet = torch.nn.DataParallel(self.mnet)
+
         self.loss_fn = loss_BCD
         self.device = device
 

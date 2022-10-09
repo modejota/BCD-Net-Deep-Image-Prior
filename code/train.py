@@ -16,7 +16,7 @@ torch.autograd.set_detect_anomaly(True)
 USE_GPU = True
 os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 if USE_GPU and torch.cuda.is_available():
-    DEVICE = torch.device('cuda:3')
+    DEVICE = torch.device('cuda')
 else:
     DEVICE = torch.device('cpu')
 print('using device:', DEVICE)
@@ -48,8 +48,9 @@ model = DVBCDModel(
                 )
 callbacks = [EarlyStopping(model, score_name="val_loss", patience=args.patience, path=SAVE_MODEL_PATH), ModelCheckpoint(model, path=SAVE_MODEL_PATH, save_freq=args.save_freq)]
 model.set_callbacks(callbacks)
-model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True)
-model.init_optimizers()
+if args.pretraining_epochs > 0:
+    model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True)
+    model.init_optimizers()
 model.fit(args.epochs, train_dataloader, val_dataloader, pretraining=False)
 
 test_dataloader_camelyon = get_camelyon_test_dataloader(args.camelyon_data_path, args.patch_size, args.num_workers, args.n_samples)
