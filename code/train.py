@@ -31,7 +31,7 @@ MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 RESULTS_PATH_CAMELYON = os.path.join(MAIN_PATH, args.results_dir, f"results_camelyon.csv")
 RESULTS_PATH_WSSB = os.path.join(MAIN_PATH, args.results_dir, f"results_wssb.csv")
 
-MODEL_DIR_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.lambda_val}lambda_{args.n_samples}nsamples"
+MODEL_DIR_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.lambda_val}lambda_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{MODEL_DIR_NAME}/")
 
 if not os.path.exists(SAVE_MODEL_PATH):
@@ -39,14 +39,14 @@ if not os.path.exists(SAVE_MODEL_PATH):
 
 train_dataloader, val_dataloader = get_train_dataloaders(args.camelyon_data_path, args.patch_size, args.batch_size, args.num_workers, val_prop=args.val_prop, n_samples=args.n_samples)
 
-sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq])
+sigmaRui_sq = torch.tensor([args.sigmaRui_sq, args.sigmaRui_sq])
 model = DVBCDModel(
                 cnet_name="unet_6", mnet_name="resnet_18_in", 
                 sigmaRui_sq=sigmaRui_sq, lambda_val=args.lambda_val, lr_cnet=args.lr_cnet, lr_mnet=args.lr_mnet,
                 lr_decay=args.lr_decay, clip_grad_cnet=args.clip_grad_cnet, clip_grad_mnet=args.clip_grad_mnet,
                 device=DEVICE
                 )
-callbacks = [EarlyStopping(model, score_name="val_loss", patience=args.patience, path=SAVE_MODEL_PATH), ModelCheckpoint(model, path=SAVE_MODEL_PATH, save_freq=args.save_freq)]
+callbacks = [EarlyStopping(model, score_name="val_loss", delta=0.001, patience=args.patience, path=SAVE_MODEL_PATH), ModelCheckpoint(model, path=SAVE_MODEL_PATH, save_freq=args.save_freq)]
 model.set_callbacks(callbacks)
 if args.pretraining_epochs > 0:
     model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True)

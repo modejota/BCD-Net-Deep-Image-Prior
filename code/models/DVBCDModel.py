@@ -10,7 +10,7 @@ from .networks.cnet import get_cnet
 from .networks.mnet import get_mnet
 
 from utils.callbacks import CallbacksList
-from utils.utils_BCD import C_to_OD_torch
+from utils.utils_BCD import C_to_OD_torch, od2rgb_torch, undo_normalization
 
 
 class DVBCDModel():
@@ -97,7 +97,6 @@ class DVBCDModel():
         #Y_RGB = Y_RGB.to(self.device)
         Y_OD = Y_OD.to(self.device)
         MR = MR.to(self.device)
-        self.sigmaRui_sq = self.sigmaRui_sq.to(self.device)
 
         Mnet_opt.zero_grad()
         Cnet_opt.zero_grad()
@@ -131,7 +130,7 @@ class DVBCDModel():
         if val_dataloader is None:
             val_dataloader = train_dataloader
 
-        self.sigmaRui_sq.to(self.device)
+        self.sigmaRui_sq = self.sigmaRui_sq.to(self.device)
         self.to(self.device)
         
         if not self.optim_initiated:
@@ -210,7 +209,6 @@ class DVBCDModel():
     def _shared_eval_step(self, batch, batch_idx, prefix):
 
         Y_RGB, Y_OD, MR = batch
-        #Y_RGB = Y_RGB.to(self.device)
         Y_OD = Y_OD.to(self.device)
         MR = MR.to(self.device)
 
@@ -218,10 +216,12 @@ class DVBCDModel():
 
         loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
 
-        #Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
+        Y_RGB = Y_RGB.to(self.device)
+        Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
+        
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
-        psnr_rec = self.compute_psnr(Y_OD, Y_rec_od)
-        ssim_rec = self.compute_ssim(Y_OD, Y_rec_od)
+        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
+        ssim_rec = self.compute_ssim(Y_RGB, Y_rec_rgb)
 
         return {
             f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item(), 
@@ -236,40 +236,55 @@ class DVBCDModel():
     
     def _shared_eval_step_GT(self, batch, batch_idx, prefix):
 
-        Y_RGB, Y_od, MR, C_GT, M_GT = batch
-        Y_od = Y_od.to(self.device)
+        Y_RGB, Y_OD, MR, C_GT, M_GT = batch
+        Y_OD = Y_OD.to(self.device)
         MR = MR.to(self.device)
         C_GT = C_GT.to(self.device)
         M_GT = M_GT.to(self.device)
 
-        out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec = self.forward(Y_od) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
+        out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y_od, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
 
-        psnr_rec = self.compute_psnr(Y_od, Y_rec)
-        ssim_rec = self.compute_ssim(Y_od, Y_rec)
+        Y_RGB = Y_RGB.to(self.device)
+        Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
+
+        mse_rec = self.compute_mse(Y_OD, Y_rec_od)
+        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
+        ssim_rec = self.compute_ssim(Y_RGB, Y_rec_rgb)
 
         C_OD = C_to_OD_torch(out_Cnet, out_Mnet_mean)
         H_OD = C_OD[:, 0, :, :]
+        H_RGB = od2rgb_torch(undo_normalization(H_OD))
         E_OD = C_OD[:, 1, :, :]
+        E_RGB = od2rgb_torch(undo_normalization(E_OD))
 
         C_GT_OD = C_to_OD_torch(C_GT, M_GT)
         H_OD_GT =  C_GT_OD[:, 0, :, :]
+        H_RGB_GT = od2rgb_torch(undo_normalization(H_OD_GT))
         E_OD_GT =  C_GT_OD[:, 1, :, :]
+        E_RGB_GT = od2rgb_torch(undo_normalization(E_OD_GT))
+
+        mse_gt_h = self.compute_mse(H_OD, H_OD_GT)
+        mse_gt_e = self.compute_mse(E_OD, E_OD_GT)
 
         psnr_gt_h = self.compute_psnr(H_OD, H_OD_GT)
         psnr_gt_e = self.compute_psnr(E_OD, E_OD_GT)
+
         ssim_gt_h = self.compute_ssim(H_OD, H_OD_GT)
         ssim_gt_e = self.compute_ssim(E_OD, E_OD_GT)
 
         return {
             f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item(), 
-            f'{prefix}_psnr_rec' : psnr_rec.item(), f'{prefix}_ssim' : ssim_rec.item(), 
+            f'{prefix}_mse_rec' : mse_rec.item(), f'{prefix}_psnr_rec' : psnr_rec.item(), f'{prefix}_ssim_rec' : ssim_rec.item(),
+            f'{prefix}_mse_gt_h' : mse_gt_h.item(), f'{prefix}_mse_gt_e' : mse_gt_e.item(), 
             f'{prefix}_psnr_gt_h' : psnr_gt_h.item(), f'{prefix}_psnr_gt_e' : psnr_gt_e.item(),
             f'{prefix}_ssim_gt_h' : ssim_gt_h.item(), f'{prefix}_ssim_gt_e' : ssim_gt_e.item()
             }
 
     def evaluate(self, test_dataloader):
+        self.sigmaRui_sq = self.sigmaRui_sq.to(self.device)
+        self.to(self.device)
         self.eval()
         pbar = tqdm(enumerate(test_dataloader), total=len(test_dataloader))
         pbar.set_description(f"Testing")
@@ -289,6 +304,8 @@ class DVBCDModel():
         return {k : np.mean(v) for k, v in tmp_metrics_dic.items()}
     
     def evaluate_GT(self, test_dataloader):
+        self.sigmaRui_sq = self.sigmaRui_sq.to(self.device)
+        self.to(self.device)
         self.eval()
         pbar = tqdm(enumerate(test_dataloader), total=len(test_dataloader))
         pbar.set_description(f"Testing")

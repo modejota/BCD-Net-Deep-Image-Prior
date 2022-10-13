@@ -1,6 +1,6 @@
 #!/bin/bash
 
-rm -f output/*
+#rm -f output/*
 
 export CUDA_VISIBLE_DEVICES=2,3
 
@@ -12,4 +12,7 @@ export CUDA_VISIBLE_DEVICES=2,3
 
 #exec nohup python code/train.py --pretraining_epochs=5 --lambda_val=0.5 > output/salida_${BASHPID}.txt &
 
-exec nohup python code/train.py --pretraining_epochs=5 --lambda_val=0.05 > output/salida_${BASHPID}.txt &
+#exec nohup python code/train.py --pretraining_epochs=1 --lambda_val=0.05 > output/salida_${BASHPID}.txt &
+
+#exec nohup python code/train.py --pretraining_epochs=1 --lambda_val=0.005 > output/salida_${BASHPID}.txt &
+#exec nohup python code/test.py --pretraining_epochs=0 --sigmaRui_sq=0.001 --lambda_val=0.005 > output/salida_${BASHPID}.txt &

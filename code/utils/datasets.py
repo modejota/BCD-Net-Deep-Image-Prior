@@ -1,3 +1,4 @@
+from cachetools import MRUCache
 import torch
 import glob
 import cv2
@@ -172,7 +173,21 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         return patches_ids, sv_ids
 
     def load_data(self):
-        img_list, od_img_list = super().load_data()
+        
+        img_list = []
+        od_img_list = []
+        for file in self.image_files:
+            img = cv2.imread(file)
+            img = img[:,:,::-1] # Changes BGR to RGB
+
+            if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
+                img = npimg_random_crop_patch(img, self.patch_size)
+            img_list.append(img)
+
+            od_img = rgb2od_np(img) #Range [0, 5.54]
+            od_img = normalize_to1(od_img, -np.log(1/256), 0) # Range [0, 1]           
+            od_img_list.append(od_img)
+
         C_gt_list = []
         M_gt_list = []
         #C_gt_rgb_list = []
@@ -190,7 +205,11 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         return self.len
 
     def __getitem__(self, idx):
-        img, od_img, mR = super().__getitem__(idx)
+        img = self.img_list[idx]
+        od_img = self.od_img_list[idx]
+        mR = self.mR
+        img = TVTF.to_tensor(img.copy()).type(torch.float32)
+        od_img = TVTF.to_tensor(od_img.copy()).type(torch.float32)
         C_gt = torch.from_numpy(self.C_gt_list[idx]).type(torch.float32)
         M_gt = torch.from_numpy(self.M_gt_list[idx]).type(torch.float32)
         #C_gt_rgb = torch.from_numpy(self.C_gt_rgb_list[idx]).type(torch.float32)

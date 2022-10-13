@@ -23,7 +23,7 @@ def set_train_opts():
     parser.add_argument('--batch_size', type=int, default=16, help="Batch size of training (default: 16)")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
     parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data (default: 0.1)")
-    parser.add_argument('--epochs', type=int, default=100, help="Training epochs (default: 100)")
+    parser.add_argument('--epochs', type=int, default=60, help="Training epochs (default: 60)")
     parser.add_argument('--pretraining_epochs', type=int, default=5, help="Pretraining epohcs (default: 5)")
     parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")
 
@@ -41,8 +41,7 @@ def set_train_opts():
     parser.add_argument('--clip_grad_mnet', type=float, default=np.Inf, help="Value to clip the gradients of MNet, (default: Inf)")
    
     # hyper-parameters
-    parser.add_argument('--sigmaRui_h_sq', default=1.0e-03, type=float, help="Prior hematoxylin variance of M (default: 1e-3)")
-    parser.add_argument('--sigmaRui_e_sq', default=1.0e-03, type=float, help="Prior eosin variance of M (default: 1e-3)")
+    parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin variance of M (default: 0.05)")
     parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
 
 

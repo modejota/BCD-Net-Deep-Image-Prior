@@ -73,7 +73,7 @@ class EarlyStopping(Callback):
     Early stops the training if validation loss doesn't improve after a given patience.
     Adapted from https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
-    def __init__(self, model, score_name, mode="min", patience=10, delta=0, path="", verbose=True):
+    def __init__(self, model, score_name, mode="min", patience=10, delta=0.0, path="", verbose=True):
         """
         Args:
             model: model to monitor
@@ -84,7 +84,7 @@ class EarlyStopping(Callback):
             verbose (bool): If True, prints a message for each validation loss improvement. 
                             Default: False
             delta (float): Minimum change in the monitored quantity to qualify as an improvement.
-                            Default: 0
+                            Default: 0.0
             path (str): Path for the checkpoint to be saved to.
                             Default: 'checkpoint.pt'
             trace_func (function): trace print function.
