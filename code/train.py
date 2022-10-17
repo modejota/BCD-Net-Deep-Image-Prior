@@ -53,6 +53,7 @@ if args.pretraining_epochs > 0:
     model.init_optimizers()
 model.fit(args.epochs, train_dataloader, val_dataloader, pretraining=False)
 
+"""
 test_dataloader_camelyon = get_camelyon_test_dataloader(args.camelyon_data_path, args.patch_size, args.num_workers, args.n_samples)
 test_dataloader_wssb_dict = get_wssb_test_dataloader(args.wssb_data_path, args.num_workers)
 
@@ -83,5 +84,5 @@ if(os.path.isfile(RESULTS_PATH_WSSB)):
     res_wssb_df.to_csv(RESULTS_PATH_WSSB, mode='a', index=False, header=False)
 else:
    res_wssb_df.to_csv(RESULTS_PATH_WSSB, index=False)
-
+"""
 

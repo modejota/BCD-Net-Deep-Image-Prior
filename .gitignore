@@ -138,3 +138,6 @@ checkpoints/*
 *.pt
 
 output/*
+
+.nfs*
+nohup.out

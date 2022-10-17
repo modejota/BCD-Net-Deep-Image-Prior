@@ -13,55 +13,6 @@ from scipy.io import loadmat
 from utils.utils_imgs import npimg_random_crop_patch
 from utils.utils_BCD import rgb2od_np, normalize_to1, direct_deconvolution_np
 
-class OD_Dataset(torch.utils.data.Dataset):
-    def __init__(self, data_path, centers, patch_size=224, n_samples=None):
-        super().__init__()
-        self.data_path = data_path
-        self.centers = centers
-        self.patch_size = patch_size
-        self.n_samples = n_samples
-        self.image_files = self.scan_files()
-        self.img_list, self.od_img_list = self.load_data()
-        self.len = len(self.image_files)
-        self.mR = torch.tensor([
-                    [0.6442, 0.0928],
-                    [0.7166, 0.9541],
-                    [0.2668, 0.2831]
-                    ])
-
-    def scan_files(self):
-        return None
-    
-    def load_data(self):
-        img_list = []
-        od_img_list = []
-        for file in self.image_files:
-            img = cv2.imread(file)
-            img = img[:,:,::-1] # Changes BGR to RGB
-
-            if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
-                img = npimg_random_crop_patch(img, self.patch_size)
-
-            od_img = rgb2od_np(img) #Range [0, 5.54]
-            od_img = normalize_to1(od_img, -np.log(1/256), 0) # Range [0, 1]
-
-            img_list.append(img)
-            od_img_list.append(od_img)
-
-        return img_list, od_img_list
-
-    def __len__(self):
-        return self.len
-
-    def __getitem__(self, idx):
-        img = self.img_list[idx]
-        od_img = self.od_img_list[idx]
-        
-        od_img = TVTF.to_tensor(od_img.copy()).type(torch.float32)
-        img = TVTF.to_tensor(img.copy()).type(torch.float32)
-
-        return img, od_img, self.mR
-
 class CamelyonDataset(torch.utils.data.Dataset):
 
     def __init__(self, data_path, centers, patch_size=224, n_samples=None):
@@ -139,9 +90,10 @@ class CamelyonDataset(torch.utils.data.Dataset):
         od_img = rgb2od_np(img) #Range [0, 5.54]
         od_img = normalize_to1(od_img, -np.log(1/256), 0)
         
-        od_img = TVTF.to_tensor(od_img.copy()).type(torch.float32)
-        img = TVTF.to_tensor(img.copy()).type(torch.float32)
-
+        #od_img = TVTF.to_tensor(od_img.copy()).type(torch.float32)
+        od_img = torch.from_numpy(od_img.copy().transpose(2,0,1).astype(np.float32))
+        #img = TVTF.to_tensor(img.copy()).type(torch.float32)
+        img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
         return img, od_img, self.mR
 
 class WSSBDatasetTest(torch.utils.data.Dataset):
@@ -178,7 +130,7 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         od_img_list = []
         for file in self.image_files:
             img = cv2.imread(file)
-            img = img[:,:,::-1] # Changes BGR to RGB
+            img = img[:,:,::-1].astype("float") # Changes BGR to RGB
 
             if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
                 img = npimg_random_crop_patch(img, self.patch_size)

@@ -15,7 +15,7 @@ from utils.utils_BCD import C_to_OD_torch, od2rgb_torch, undo_normalization
 
 class DVBCDModel():
     def __init__(
-                self, cnet_name="unet6", mnet_name="resnet_18_in", 
+                self, cnet_name="unet_6", mnet_name="resnet_18_in", 
                 sigmaRui_sq=torch.tensor([0.05, 0.05]), lambda_val=1.0, lr_cnet=1e-4, 
                 lr_mnet=1e-4, lr_decay=0.1, clip_grad_cnet=np.Inf, clip_grad_mnet=np.Inf,
                 device=torch.device('cpu')
@@ -23,7 +23,7 @@ class DVBCDModel():
         self.cnet = get_cnet(cnet_name)
         self.mnet = get_mnet(mnet_name, kernel_size=3)
 
-        if torch.cuda.device_count() > 1:
+        if device==torch.device('cuda') and torch.cuda.device_count() > 1:
             self.cnet = torch.nn.DataParallel(self.cnet)
             self.mnet = torch.nn.DataParallel(self.mnet)
 
@@ -53,13 +53,13 @@ class DVBCDModel():
         self.callbacks_list.set_callbacks(callbacks)
 
     def forward(self, y):
+        self.to(self.device)
         out_Mnet_mean, out_Mnet_var = self.mnet(y) # shape: (batch_size, 3, 2), (batch_size, 1, 2)
         out_Cnet = self.cnet(y) # shape: (batch_size, 2, H, W)
-        batch_size, c, heigth, width = out_Cnet.shape 
-        patch_size = heigth # heigth = width = patch_size
-        Cflat = out_Cnet.view(-1, 2, patch_size * patch_size) #shape: (batch, 2, patch_size * patch_size)
-        Y_rec = torch.matmul(out_Mnet_mean, Cflat) #shape: (batch, 3, patch_size * patch_size)
-        Y_rec = Y_rec.view(batch_size, 3, patch_size, patch_size) #shape: (batch, 3, patch_size, patch_size)
+        batch_size, c, H, W = out_Cnet.shape 
+        Cflat = out_Cnet.view(-1, 2, H * W) #shape: (batch, 2, H * W)
+        Y_rec = torch.matmul(out_Mnet_mean, Cflat) #shape: (batch, 3, H * W)
+        Y_rec = Y_rec.view(batch_size, 3, H, W) #shape: (batch, 3, H, W)
         return out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec
 
     def train(self):
@@ -218,6 +218,7 @@ class DVBCDModel():
 
         Y_RGB = Y_RGB.to(self.device)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
+        Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
         
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
         psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
@@ -261,18 +262,18 @@ class DVBCDModel():
 
         C_GT_OD = C_to_OD_torch(C_GT, M_GT)
         H_OD_GT =  C_GT_OD[:, 0, :, :]
-        H_RGB_GT = od2rgb_torch(undo_normalization(H_OD_GT))
+        H_RGB_GT = od2rgb_torch(H_OD_GT)
         E_OD_GT =  C_GT_OD[:, 1, :, :]
-        E_RGB_GT = od2rgb_torch(undo_normalization(E_OD_GT))
+        E_RGB_GT = od2rgb_torch(E_OD_GT)
 
         mse_gt_h = self.compute_mse(H_OD, H_OD_GT)
         mse_gt_e = self.compute_mse(E_OD, E_OD_GT)
 
-        psnr_gt_h = self.compute_psnr(H_OD, H_OD_GT)
-        psnr_gt_e = self.compute_psnr(E_OD, E_OD_GT)
+        psnr_gt_h = self.compute_psnr(H_RGB, H_RGB_GT)
+        psnr_gt_e = self.compute_psnr(E_RGB, E_RGB_GT)
 
-        ssim_gt_h = self.compute_ssim(H_OD, H_OD_GT)
-        ssim_gt_e = self.compute_ssim(E_OD, E_OD_GT)
+        ssim_gt_h = self.compute_ssim(H_RGB, H_RGB_GT)
+        ssim_gt_e = self.compute_ssim(E_RGB, E_RGB_GT)
 
         return {
             f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item(), 

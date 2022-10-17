@@ -23,14 +23,16 @@ def undo_normalization(data, max_val=np.log(256.0), min_val=0.0):
 
 def direct_deconvolution_np(Y, M):
     (n,m,c) = Y.shape
-    Y = Y.reshape(c, -1) # channels first
+    Y = Y.transpose(2, 0, 1) # channels first
+    Y = Y.reshape(c, -1)
     ct = np.linalg.lstsq(M,Y,rcond=None)[0]
     ct = ct.reshape((ct.shape[0], n, m))
     return ct
 
 def direct_deconvolution_torch(Y, M):
     (h,w,c) = Y.shape
-    Y = Y.reshape(-1,c).T # channels first
+    Y = Y.tranpose(2, 0, 1) # channels first
+    Y = Y.view(c, -1)
     ct, _ = torch.lstsq(Y, M)
     ct = ct.reshape((ct.shape[0], h, w))
     return ct
@@ -44,8 +46,8 @@ def C_to_OD_np(C, M):
     if len (C.shape) == 3:
         C = C.unsqueeze(0)
         M = M.unsqueeze(0)
-    C_od = np.einsum('bcs, bswh -> bschw', M, C)
-    C_od = undo_normalization(C_od)
+    C_od = np.einsum('bcs, bshw -> bschw', M, C)
+    #C_od = undo_normalization(C_od)
     C_od = C_od.transpose(0,1,3,4,2)
     if C.shape[0]==1:
         C_od = C_od.squeeze(0)
@@ -60,6 +62,16 @@ def C_to_OD_torch(C, M):
     if len (C.shape) == 3:
         C = C.unsqueeze(0)
         M = M.unsqueeze(0)
-    C_od = torch.einsum('bcs, bswh -> bschw', M, C)
-    C_od = undo_normalization(C_od)
+    C_od = torch.einsum('bcs, bshw -> bschw', M, C)
+    #C_od = undo_normalization(C_od)
     return C_od
+
+def C_to_RGB_np(C, M):
+    """
+    C: (bs, ns, h, w)
+    M: (bs, 3, ns)
+    Returns: (bs, h, w, 3)
+    """
+    C_od = C_to_OD_np(C, M)
+    C_rgb = od2rgb_np(C_od)
+    return C_rgb

@@ -25,16 +25,16 @@ args = set_train_opts()
 for arg in vars(args):
     print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
 
-SAVE_KEYS = ["patch_size", "pretraining_epochs", "n_samples", "lambda_val"]
+SAVE_KEYS = ["patch_size", "pretraining_epochs", "n_samples", "lambda_val", "sigmaRui_sq"]
 
 MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 RESULTS_PATH_CAMELYON = os.path.join(MAIN_PATH, args.results_dir, f"results_camelyon.csv")
 RESULTS_PATH_WSSB = os.path.join(MAIN_PATH, args.results_dir, f"results_wssb.csv")
 
-MODEL_DIR_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.lambda_val}lambda_{args.n_samples}nsamples"
+MODEL_DIR_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.lambda_val}lambda_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{MODEL_DIR_NAME}/")
 
-sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq])
+sigmaRui_sq = torch.tensor([args.sigmaRui_sq, args.sigmaRui_sq])
 model = DVBCDModel(
                 cnet_name="unet_6", mnet_name="resnet_18_in", 
                 sigmaRui_sq=sigmaRui_sq, lambda_val=args.lambda_val, lr_cnet=args.lr_cnet, lr_mnet=args.lr_mnet,
@@ -44,7 +44,8 @@ model = DVBCDModel(
 
 model.load(SAVE_MODEL_PATH + "best.pt")
 
-test_dataloader_camelyon = get_camelyon_test_dataloader(args.camelyon_data_path, args.patch_size, args.num_workers, args.n_samples)
+n_samples_camelyon = int(0.2*args.n_samples)
+test_dataloader_camelyon = get_camelyon_test_dataloader(args.camelyon_data_path, args.patch_size, args.num_workers, n_samples_camelyon)
 test_dataloader_wssb_dict = get_wssb_test_dataloader(args.wssb_data_path, args.num_workers)
 
 results_dic_camelyon = {}
