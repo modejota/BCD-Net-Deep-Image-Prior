@@ -2,7 +2,7 @@ import os
 import torch
 import pandas as pd
 
-from utils.callbacks import EarlyStopping, ModelCheckpoint
+from utils.callbacks import EarlyStopping, ModelCheckpoint, History
 from options import set_train_opts
 
 from utils.utils_data import get_train_dataloaders, get_camelyon_test_dataloader, get_wssb_test_dataloader
@@ -25,28 +25,36 @@ args = set_train_opts()
 for arg in vars(args):
     print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
 
-SAVE_KEYS = ["patch_size", "pretraining_epochs", "n_samples", "lambda_val"]
+SAVE_KEYS = ["patch_size", "pretraining_epochs", "n_samples", "theta_val"]
 
 MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 RESULTS_PATH_CAMELYON = os.path.join(MAIN_PATH, args.results_dir, f"results_camelyon.csv")
 RESULTS_PATH_WSSB = os.path.join(MAIN_PATH, args.results_dir, f"results_wssb.csv")
 
-MODEL_DIR_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.lambda_val}lambda_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
-SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{MODEL_DIR_NAME}/")
+SAVE_MODEL_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
+SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{SAVE_MODEL_NAME}/")
+HISTORY_PATH = os.path.join(args.save_history_dir, f"{SAVE_MODEL_NAME}.csv")
+
+if not os.path.exists(args.save_history_dir):
+    os.makedirs(args.save_history_dir)
 
 if not os.path.exists(SAVE_MODEL_PATH):
     os.makedirs(SAVE_MODEL_PATH)
+
 
 train_dataloader, val_dataloader = get_train_dataloaders(args.camelyon_data_path, args.patch_size, args.batch_size, args.num_workers, val_prop=args.val_prop, n_samples=args.n_samples)
 
 sigmaRui_sq = torch.tensor([args.sigmaRui_sq, args.sigmaRui_sq])
 model = DVBCDModel(
                 cnet_name="unet_6", mnet_name="resnet_18_in", 
-                sigmaRui_sq=sigmaRui_sq, lambda_val=args.lambda_val, lr_cnet=args.lr_cnet, lr_mnet=args.lr_mnet,
+                sigmaRui_sq=sigmaRui_sq, theta_val=args.theta_val, lr_cnet=args.lr_cnet, lr_mnet=args.lr_mnet,
                 lr_decay=args.lr_decay, clip_grad_cnet=args.clip_grad_cnet, clip_grad_mnet=args.clip_grad_mnet,
                 device=DEVICE
                 )
-callbacks = [EarlyStopping(model, score_name="val_loss", delta=0.001, patience=args.patience, path=SAVE_MODEL_PATH), ModelCheckpoint(model, path=SAVE_MODEL_PATH, save_freq=args.save_freq)]
+callbacks = [
+    EarlyStopping(model, score_name="val_loss", delta=0.001, patience=args.patience, path=SAVE_MODEL_PATH), 
+    ModelCheckpoint(model, path=SAVE_MODEL_PATH, save_freq=args.save_freq), 
+    History(path = HISTORY_PATH)]
 model.set_callbacks(callbacks)
 if args.pretraining_epochs > 0:
     model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True)

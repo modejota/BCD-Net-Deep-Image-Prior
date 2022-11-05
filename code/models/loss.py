@@ -3,7 +3,9 @@ from math import pi, log
 import torch.nn.functional as F
 
 
-def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, lambda_val=0.5):
+NORM_CONST = 1e-3
+
+def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, theta_val=0.5):
     """
     Args:
         out_CNet: output of CNet, estimation of the separated concentrations in the image, one layer for each stain,
@@ -42,9 +44,10 @@ def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, l
     loss_mse = term_mse1 + term_mse2
     # print('loss mse:',loss_mse)
 
-    #loss_mse = (1-theta)*loss_mse
-    #loss_kl = theta*loss_kl
-    loss_mse = 0.5 * (1.0/lambda_val**2) * loss_mse
+    # el papel de theta es al revés del artículo
+    loss_mse = theta_val*loss_mse
+    loss_kl = (1-theta_val)*NORM_CONST*loss_kl
+    #loss_mse = 0.5 * (1.0/theta_val**2) * loss_mse
     loss = loss_mse + loss_kl
 
     return loss, loss_kl, loss_mse

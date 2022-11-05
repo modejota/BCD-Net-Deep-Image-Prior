@@ -1,3 +1,5 @@
+import pandas as pd
+
 class Callback():
     def __init__(self):
         pass
@@ -24,6 +26,14 @@ class Callback():
     
     def on_epoch_end(self, epoch, logs=None):
         """Called at the end of a training epoch."""
+        pass
+
+    def on_train_begin(self, logs=None):
+        "Called at the beginning of training."
+        pass
+    
+    def on_train_end(self, logs=None):
+        "Called at the end of training."
         pass
 
 class CallbacksList(Callback):
@@ -67,6 +77,14 @@ class CallbacksList(Callback):
     def on_epoch_end(self, epoch, logs=None):
         for callback in self.callbacks:
             callback.on_epoch_end(epoch, logs)
+    
+    def on_train_begin(self, logs=None):
+        for callback in self.callbacks:
+            callback.on_train_begin(logs)
+    
+    def on_train_end(self, logs=None):
+        for callback in self.callbacks:
+            callback.on_train_end(logs)
 
 class EarlyStopping(Callback):
     """
@@ -157,14 +175,24 @@ class ModelCheckpoint(Callback):
                 print(f"Model saved to {self.path}.")
 
 class History(Callback):
-    def __init__(self):
-        self.history = {}
+    def __init__(self, path, verbose=True):
+        self.history = {"epoch" : []}
+        self.path = path
+        self.verbose = verbose
     
     def get_history(self):
         return self.history
     
-    def on_train_epoch_end(self, epoch, logs=None):
-        for k, v in logs.items():
-            if k not in self.history:
-                self.history[k] = []
-            self.history[k].append(v)
+    def on_epoch_end(self, epoch, logs=None):
+        self.history["epoch"].append(epoch)
+        if logs is not None:
+            for k, v in logs.items():
+                if k not in self.history:
+                    self.history[k] = []
+                self.history[k].append(v)
+    
+    def on_train_end(self, logs=None):
+        if self.verbose:
+            print(f"Saving history to {self.path}.")
+        history_df = pd.DataFrame(self.history)
+        history_df.to_csv(self.path, index=False)

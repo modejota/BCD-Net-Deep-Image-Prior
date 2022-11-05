@@ -13,7 +13,7 @@ def set_train_opts():
                         '--wssb_data_path', default='/data/BasesDeDatos/Alsubaie/Data/', 
                         type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
                         )
-    parser.add_argument('--log_dir', default='/work/work_fran/Deep_Var_BCD/log/', type=str, metavar='PATH', help="Path to save the log file (default: /work/work_fran/Deep_Var_BCD/log/)")
+    parser.add_argument('--save_history_dir', default='/work/work_fran/Deep_Var_BCD/history/', type=str, metavar='PATH', help="Path to save the history file (default: /work/work_fran/Deep_Var_BCD/history/)")
     parser.add_argument('--save_model_dir', default='/work/work_fran/Deep_Var_BCD/weights/', type=str, metavar='PATH', help="Path to save the model weights (default: /work/work_fran/Deep_Var_BCD/weights/)")   
     parser.add_argument('--results_dir', default='/work/work_fran/Deep_Var_BCD/results/', type=str, metavar='PATH', help="Path to save the results (default: /work/work_fran/Deep_Var_BCD/results/)")   
     parser.add_argument('--save_freq', default=20, type=int, help="Frequency to save the model weights (default: 20)")
@@ -42,6 +42,7 @@ def set_train_opts():
    
     # hyper-parameters
     parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin variance of M (default: 0.05)")
+    parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
     parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
 
 

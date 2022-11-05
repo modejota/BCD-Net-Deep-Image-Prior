@@ -16,7 +16,7 @@ from utils.utils_BCD import C_to_OD_torch, od2rgb_torch, undo_normalization
 class DVBCDModel():
     def __init__(
                 self, cnet_name="unet_6", mnet_name="resnet_18_in", 
-                sigmaRui_sq=torch.tensor([0.05, 0.05]), lambda_val=1.0, lr_cnet=1e-4, 
+                sigmaRui_sq=torch.tensor([0.05, 0.05]), theta_val=1.0, lr_cnet=1e-4, 
                 lr_mnet=1e-4, lr_decay=0.1, clip_grad_cnet=np.Inf, clip_grad_mnet=np.Inf,
                 device=torch.device('cpu')
                 ):
@@ -32,8 +32,8 @@ class DVBCDModel():
 
         #self.sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq]).to(self.device)
         self.sigmaRui_sq = sigmaRui_sq
-        self.lambda_val = lambda_val
-        self.pretraining_lambda = 1.0
+        self.theta_val = theta_val
+        self.pretraining_theta = 0.9
 
         self.lr_cnet = lr_cnet
         self.lr_mnet = lr_mnet
@@ -104,10 +104,10 @@ class DVBCDModel():
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
         if pretraining:
-            lambda_val = self.pretraining_lambda
+            theta_val = self.pretraining_theta
         else:
-            lambda_val = self.lambda_val
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, lambda_val)
+            theta_val = self.theta_val
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, theta_val)
 
         loss.backward()
         
@@ -139,6 +139,8 @@ class DVBCDModel():
         epoch_log_dic = {}
         tmp_train_log_dic = {}
         tmp_val_log_dic = {}
+
+        self.callbacks_list.on_train_begin()
         
         for epoch in range(1, max_epochs + 1):
 
@@ -199,6 +201,8 @@ class DVBCDModel():
             self.callbacks_list.on_epoch_end(epoch, epoch_log_dic)
             if self.stop_training:
                 break
+        
+        self.callbacks_list.on_train_end()
 
     def validation_step(self, batch, batch_idx):
         return self._shared_eval_step(batch, batch_idx, 'val')
@@ -214,7 +218,7 @@ class DVBCDModel():
 
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
@@ -245,7 +249,7 @@ class DVBCDModel():
 
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
