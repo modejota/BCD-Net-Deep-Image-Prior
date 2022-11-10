@@ -33,7 +33,7 @@ class DVBCDModel():
         #self.sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq]).to(self.device)
         self.sigmaRui_sq = sigmaRui_sq
         self.theta_val = theta_val
-        self.pretraining_theta = 0.9
+        self.pretraining_theta = 0.95
 
         self.lr_cnet = lr_cnet
         self.lr_mnet = lr_mnet
@@ -107,6 +107,7 @@ class DVBCDModel():
             theta_val = self.pretraining_theta
         else:
             theta_val = self.theta_val
+        
         loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, theta_val)
 
         loss.backward()

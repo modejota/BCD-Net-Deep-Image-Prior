@@ -3,7 +3,7 @@ import torch
 import pandas as pd
 
 from utils.callbacks import EarlyStopping, ModelCheckpoint, History
-from options import set_train_opts
+from options import set_opts
 
 from utils.utils_data import get_train_dataloaders, get_camelyon_test_dataloader, get_wssb_test_dataloader
 from models.DVBCDModel import DVBCDModel
@@ -21,7 +21,7 @@ else:
     DEVICE = torch.device('cpu')
 print('using device:', DEVICE)
 
-args = set_train_opts()
+args = set_opts()
 for arg in vars(args):
     print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
 

@@ -129,7 +129,7 @@ class EarlyStopping(Callback):
 
         if self.best_score is None:
             self.best_score = score
-            #self.save_checkpoint(score)
+            self.save_checkpoint()
         elif score < self.best_score - self.delta:
             self.best_score = score
             self.save_checkpoint()
