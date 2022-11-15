@@ -4,7 +4,7 @@
 
 rm -f output/*
 
-export CUDA_VISIBLE_DEVICES=2,3
+export CUDA_VISIBLE_DEVICES=1,2,3
 
 ################################################################################################# 
 
@@ -13,7 +13,8 @@ export CUDA_VISIBLE_DEVICES=2,3
 
 pretraining_epochs_array=(0 1)
 #theta_val_array=(0.0 0.5 0.75 0.9 0.99 0.999 1.0)
-theta_val_array=(0.0 0.001 0.01 0.1 0.5 0.9 1.0)
+theta_val_array=(0.001 0.01 0.1 0.25)
+#theta_val_array=(0.0 0.001 0.01 0.1 0.25 0.5 0.75 0.9 0.99 0.999 1.0)
 
 
 for pe in "${pretraining_epochs_array[@]}"
