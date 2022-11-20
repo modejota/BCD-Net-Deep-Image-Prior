@@ -43,11 +43,15 @@ def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, t
     loss_mse = term_mse1 + term_mse2
     # print('loss mse:',loss_mse)
 
-    loss_mse = (1.0-theta_val)*loss_mse
-    loss_kl = (theta_val)*NORM_CONST*loss_kl
+    loss_kl = NORM_CONST*loss_kl
+
     #loss_mse = 0.5 * (1.0/theta_val**2) * loss_mse
+    
+    #loss_mse = (1.0-theta_val)*loss_mse
+    #loss_kl = (theta_val)*loss_kl
+    
     loss = loss_mse + loss_kl
-    #loss = (1.0-theta_val)*loss_mse + theta_val*loss_kl
+    loss = (1.0-theta_val)*loss_mse + theta_val*loss_kl
 
     return loss, loss_kl, loss_mse
     #return {'loss': loss, 'loss_mse': loss_mse, 'loss_kl': loss_kl, 'loss_kl_h': loss_kl_h, 'loss_kl_e': loss_kl_e, }

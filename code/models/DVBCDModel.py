@@ -20,6 +20,8 @@ class DVBCDModel():
                 lr_mnet=1e-4, lr_decay=0.1, clip_grad_cnet=np.Inf, clip_grad_mnet=np.Inf,
                 device=torch.device('cpu')
                 ):
+        self.cnet_name = cnet_name
+        self.mnet_name = mnet_name
         self.cnet = get_cnet(cnet_name)
         self.mnet = get_mnet(mnet_name, kernel_size=3)
 
@@ -114,8 +116,8 @@ class DVBCDModel():
         
         #print(count_dict)
 
-        #torch.nn.utils.clip_grad_norm_(self.cnet.parameters(), self.clip_grad_cnet)
-        #torch.nn.utils.clip_grad_norm_(self.mnet.parameters(), self.clip_grad_mnet)
+        torch.nn.utils.clip_grad_norm_(self.cnet.parameters(), self.clip_grad_cnet)
+        torch.nn.utils.clip_grad_norm_(self.mnet.parameters(), self.clip_grad_mnet)
 
         Mnet_opt.step()
         Cnet_opt.step()
@@ -345,13 +347,27 @@ class DVBCDModel():
         name = path.split("/")[-1]
         final_path_cnet = "/".join(rest) + f"/cnet_{name}"
         final_path_mnet = "/".join(rest) + f"/mnet_{name}"
-        torch.save(self.cnet.state_dict(), final_path_cnet)
-        torch.save(self.mnet.state_dict(), final_path_mnet)
+        torch.save(self.cnet.module.state_dict(), final_path_cnet)
+        torch.save(self.mnet.module.state_dict(), final_path_mnet)
     
-    def load(self, path):
+    def load(self, path, remove_module=False):
         rest = path.split("/")[0:-1]
         name = path.split("/")[-1]
         final_path_cnet = "/".join(rest) + f"/cnet_{name}"
         final_path_mnet = "/".join(rest) + f"/mnet_{name}"
-        self.cnet.load_state_dict(torch.load(final_path_cnet))
-        self.mnet.load_state_dict(torch.load(final_path_mnet))
+
+        cnet_weights = torch.load(final_path_cnet)
+        mnet_weights = torch.load(final_path_mnet)
+        if remove_module:
+            new_cnet_weights = {}
+            for k, v in cnet_weights.items():
+                name = k[7:]
+                new_cnet_weights[name] = v
+            cnet_weights = new_cnet_weights
+            new_mnet_weights = {}
+            for k, v in mnet_weights.items():
+                name = k[7:]
+                new_mnet_weights[name] = v
+            mnet_weights = new_mnet_weights
+        self.cnet.load_state_dict(cnet_weights)
+        self.mnet.load_state_dict(mnet_weights)

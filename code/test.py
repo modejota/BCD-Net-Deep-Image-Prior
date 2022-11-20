@@ -5,7 +5,7 @@ import pandas as pd
 from utils.callbacks import EarlyStopping, ModelCheckpoint
 from options import set_opts
 
-from utils.utils_data import get_train_dataloaders, get_camelyon_test_dataloader, get_wssb_test_dataloader
+from utils.utils_data import get_camelyon_test_dataloader, get_wssb_test_dataloader
 from models.DVBCDModel import DVBCDModel
 
 print(torch.__version__)

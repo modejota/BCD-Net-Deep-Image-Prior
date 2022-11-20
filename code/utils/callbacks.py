@@ -120,7 +120,6 @@ class EarlyStopping(Callback):
         self.best_score = None
         #self.early_stop = False
         
-    
     def on_epoch_end(self, epoch, logs=None):
         if self.mode == "max":
             score = -logs[self.score_name]

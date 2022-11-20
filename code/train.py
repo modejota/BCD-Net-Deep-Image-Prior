@@ -52,7 +52,7 @@ model = DVBCDModel(
                 device=DEVICE
                 )
 callbacks = [
-    EarlyStopping(model, score_name="val_loss", delta=0.001, patience=args.patience, path=SAVE_MODEL_PATH), 
+    EarlyStopping(model, score_name="val_ssim_rec", mode="max", delta=0.001, patience=args.patience, path=SAVE_MODEL_PATH), 
     ModelCheckpoint(model, path=SAVE_MODEL_PATH, save_freq=args.save_freq), 
     History(path = HISTORY_PATH)]
 model.set_callbacks(callbacks)
