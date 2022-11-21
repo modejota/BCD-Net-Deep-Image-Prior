@@ -25,7 +25,8 @@ class MNet(nn.Module):
             nn.ReLU(inplace=False),
             #nn.Linear(fc_hidden_dim, 2*kernel_size),
             nn.Linear(fc_hidden_dim, 2),
-            nn.ReLU(inplace=False)
+            nn.Sigmoid()
+            #nn.ReLU(inplace=False)
         )
 
     def forward(self, x):

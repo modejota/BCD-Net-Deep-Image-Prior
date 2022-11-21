@@ -2,7 +2,8 @@ import torch
 import torch.nn.functional as F
 
 
-NORM_CONST = 1.0
+CONST_KL = 1.0
+CONST_MSE = 1.0 / (0.005)**2
 
 def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, theta_val=0.5):
     """
@@ -43,7 +44,8 @@ def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, t
     loss_mse = term_mse1 + term_mse2
     # print('loss mse:',loss_mse)
 
-    loss_kl = NORM_CONST*loss_kl
+    loss_kl = CONST_KL*loss_kl
+    loss_mse = CONST_MSE*loss_mse
 
     #loss_mse = 0.5 * (1.0/theta_val**2) * loss_mse
     

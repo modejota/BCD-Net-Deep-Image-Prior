@@ -10,7 +10,7 @@ from .networks.cnet import get_cnet
 from .networks.mnet import get_mnet
 
 from utils.callbacks import CallbacksList
-from utils.utils_BCD import C_to_OD_torch, od2rgb_torch, undo_normalization
+from utils.utils_BCD import normalize_to1, C_to_OD_torch, od2rgb_torch, undo_normalization
 
 
 class DVBCDModel():
@@ -35,7 +35,7 @@ class DVBCDModel():
         #self.sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq]).to(self.device)
         self.sigmaRui_sq = sigmaRui_sq
         self.theta_val = theta_val
-        self.pretraining_theta = 0.95
+        self.pretraining_theta = 1.0
 
         self.lr_cnet = lr_cnet
         self.lr_mnet = lr_mnet
@@ -224,6 +224,7 @@ class DVBCDModel():
         loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
+        Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
         Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
         
@@ -255,7 +256,9 @@ class DVBCDModel():
         loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
+        Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
+        Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
 
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
         psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
@@ -263,15 +266,25 @@ class DVBCDModel():
 
         C_OD = C_to_OD_torch(out_Cnet, out_Mnet_mean)
         H_OD = C_OD[:, 0, :, :]
+        #H_OD = torch.clamp(H_OD, 0.0, H_OD.max())
         H_RGB = od2rgb_torch(undo_normalization(H_OD))
+        H_RGB = torch.clamp(H_RGB, 0.0, 255.0)
         E_OD = C_OD[:, 1, :, :]
+        #E_OD = torch.clamp(E_OD, 0.0, E_OD.max())
         E_RGB = od2rgb_torch(undo_normalization(E_OD))
+        E_RGB = torch.clamp(E_RGB, 0.0, 255.0)
+        #E_RGB = (255.0*normalize_to1(E_RGB, max_val=E_RGB.max(), min_val = E_RGB.min()))
+        #print("aprox:", E_RGB.min(), E_RGB.max())
 
         C_GT_OD = C_to_OD_torch(C_GT, M_GT)
         H_OD_GT =  C_GT_OD[:, 0, :, :]
         H_RGB_GT = od2rgb_torch(H_OD_GT)
+        H_RGB_GT = torch.clamp(H_RGB_GT, 0.0, 255.0)
         E_OD_GT =  C_GT_OD[:, 1, :, :]
         E_RGB_GT = od2rgb_torch(E_OD_GT)
+        E_RGB_GT = torch.clamp(E_RGB_GT, 0.0, 255.0)
+        #E_RGB_GT = (255.0*normalize_to1(E_RGB_GT, max_val=E_RGB_GT.max(), min_val = E_RGB_GT.min()))
+        #print("gt:", E_RGB_GT.min(), E_RGB_GT.max())
 
         mse_gt_h = self.compute_mse(H_OD, H_OD_GT)
         mse_gt_e = self.compute_mse(E_OD, E_OD_GT)
