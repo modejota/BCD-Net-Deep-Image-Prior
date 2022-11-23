@@ -35,7 +35,7 @@ class DVBCDModel():
         #self.sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq]).to(self.device)
         self.sigmaRui_sq = sigmaRui_sq
         self.theta_val = theta_val
-        self.pretraining_theta = 1.0
+        self.pretraining_theta = 0.9
 
         self.lr_cnet = lr_cnet
         self.lr_mnet = lr_mnet
@@ -122,10 +122,13 @@ class DVBCDModel():
         Mnet_opt.step()
         Cnet_opt.step()
 
-        #Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
+        Y_RGB = Y_RGB.to(self.device)
+        Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
+        Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
+
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
-        psnr_rec = self.compute_psnr(Y_OD, Y_rec_od)
-        ssim_rec = self.compute_ssim(Y_OD, Y_rec_od)
+        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
+        ssim_rec = self.compute_ssim(Y_RGB, Y_rec_rgb)
 
         return {'train_loss' : loss.item(), 'train_loss_mse' : loss_mse.item(), 'train_loss_kl' : loss_kl.item(), 'train_mse_rec' : mse_rec.item(), 'train_psnr_rec' : psnr_rec.item(), 'train_ssim_rec' : ssim_rec.item()}
 
@@ -224,7 +227,7 @@ class DVBCDModel():
         loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
-        Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
+        #Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
         Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
         
@@ -256,7 +259,7 @@ class DVBCDModel():
         loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
-        Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
+        #Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
         Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
 

@@ -21,11 +21,10 @@ class MNet(nn.Module):
             nn.Sigmoid()
         )
 
-        self.M_var = nn.Sequential(
+        self.M_log_var = nn.Sequential(
             nn.ReLU(inplace=False),
-            #nn.Linear(fc_hidden_dim, 2*kernel_size),
             nn.Linear(fc_hidden_dim, 2),
-            nn.Sigmoid()
+            #nn.Sigmoid()
             #nn.ReLU(inplace=False)
         )
 
@@ -39,7 +38,7 @@ class MNet(nn.Module):
         l1 = torch.norm(mean, dim=1, keepdim=True) # shape (batch_size, )
         mean = torch.div(mean , l1 + 1e-10)
 
-        var = self.M_var(x) + 1e-10 # shape (batch_size, 2)
+        var = torch.exp(self.M_log_var(x))**2 + 1e-10 # shape (batch_size, 2)
         var = var.view(var.shape[0], 1, 2)
 
         return mean, var
