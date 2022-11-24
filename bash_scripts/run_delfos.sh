@@ -1,8 +1,8 @@
 #!/bin/bash
 
-# Se lanza: nohup ./bash_scripts/run.sh &
+# Se lanza: nohup ./bash_scripts/run_delfos.sh &
 
-rm -f output/*
+rm -f output/salida_delfos_*
 
 export CUDA_VISIBLE_DEVICES=0,1,2,3
 
@@ -15,14 +15,14 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 num_workers=32
 batch_size=64
 
-pretraining_epochs_array=(0 1)
-theta_val_array=(0.25 0.5 0.75)
+pretraining_epochs_array=(0)
+theta_val_array=(0.25 0.5)
 
 for pe in "${pretraining_epochs_array[@]}"
 do
     for theta in "${theta_val_array[@]}"
     do
-        python code/train.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_${BASHPID}.txt 2>&1
-        python code/test.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_${BASHPID}.txt 2>&1
+        #python code/train.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_${BASHPID}.txt 2>&1
+        python code/test.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_delfos_${BASHPID}.txt 2>&1
     done
 done

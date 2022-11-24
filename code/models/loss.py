@@ -33,15 +33,15 @@ def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, t
     term_kl1 = 0.5 * torch.sum(mse_mean_vecs / sigmaRui_sq, dim=1) # shape: (batch,)
     term_kl2 = (1.5) * torch.sum(out_Mnet_var_div_sigmaRui_sq - torch.log(out_Mnet_var_div_sigmaRui_sq) - 1, dim=[1,2]) # shape: (batch,)
     loss_kl = torch.mean(term_kl1 + term_kl2) #shape: (1,)
-
-    #Cflat = out_Cnet.view(-1, 2, patch_size * patch_size) #shape: (batch, 2, patch_size * patch_size)
     
     #term_mse1 = torch.mean(torch.sum(torch.pow(Y - Y_rec, 2), dim=[1,2,3]) ) # shape: (1,)
     term_mse1 = F.mse_loss(Y, Y_rec, reduction='mean') # shape: (1,)
     
-    patch_size = out_Cnet.shape[2]
-    Cflat = out_Cnet.view(-1, patch_size*patch_size, 2)
-    term_mse2 = 3.0 * torch.mean( torch.sum(torch.mul(out_Mnet_var, torch.pow(Cflat, 2)), dim=[1,2]) ) # shape: (1,)
+    #patch_size = out_Cnet.shape[2]
+    #Cflat = out_Cnet.view(-1, 2, patch_size * patch_size) #shape: (batch, 2, patch_size * patch_size)
+    #Cflat_swp = Cflat.permute(0, 2, 1) #shape: (batch, patch_size * patch_size, 2)
+    #term_mse2 = 3.0 * torch.mean( torch.sum(torch.mul(out_Mnet_var, torch.pow(Cflat_swp, 2)), dim=[1,2]) ) # shape: (1,)
+    term_mse2 = 0.0
 
     
     loss_mse = term_mse1 + term_mse2

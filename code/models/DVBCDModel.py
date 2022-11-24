@@ -385,5 +385,5 @@ class DVBCDModel():
                 name = k[7:]
                 new_mnet_weights[name] = v
             mnet_weights = new_mnet_weights
-        self.cnet.load_state_dict(cnet_weights)
-        self.mnet.load_state_dict(mnet_weights)
+        self.cnet.module.load_state_dict(cnet_weights)
+        self.mnet.module.load_state_dict(mnet_weights)

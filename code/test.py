@@ -63,6 +63,7 @@ for organ in test_dataloader_wssb_dict.keys():
     for k in metrics_wssb.keys():
         results_dic_wssb[f"wssb_{organ}_" + k] = metrics_wssb[k]
 
+print("Writing results to csv...")
 
 res_camelyon_df = pd.DataFrame(results_dic_camelyon, index=[0])
 if(os.path.isfile(RESULTS_PATH_CAMELYON)):
