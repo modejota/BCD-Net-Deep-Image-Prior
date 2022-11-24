@@ -16,13 +16,13 @@ num_workers=32
 batch_size=64
 
 pretraining_epochs_array=(0 1)
-theta_val_array=(0.25 0.5 0.75)
+theta_val_array=(0.1 0.25 0.5 0.75 0.9)
 
 for pe in "${pretraining_epochs_array[@]}"
 do
     for theta in "${theta_val_array[@]}"
     do
-        python code/train.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_${BASHPID}.txt 2>&1
-        python code/test.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_${BASHPID}.txt 2>&1
+        python code/train.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_dodona_${BASHPID}.txt 2>&1
+        python code/test.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_dodona_${BASHPID}.txt 2>&1
     done
 done

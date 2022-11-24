@@ -124,10 +124,10 @@ class DVBCDModel():
 
         Y_RGB = Y_RGB.to(self.device)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
-        Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
+        Y_rec_rgb_clamp = torch.clamp(Y_rec_rgb, 0.0, 255.0)
 
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
-        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
+        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb_clamp)
         ssim_rec = self.compute_ssim(Y_RGB, Y_rec_rgb)
 
         return {'train_loss' : loss.item(), 'train_loss_mse' : loss_mse.item(), 'train_loss_kl' : loss_kl.item(), 'train_mse_rec' : mse_rec.item(), 'train_psnr_rec' : psnr_rec.item(), 'train_ssim_rec' : ssim_rec.item()}
@@ -229,10 +229,10 @@ class DVBCDModel():
         Y_RGB = Y_RGB.to(self.device)
         #Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
-        Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
+        Y_rec_rgb_clamp = torch.clamp(Y_rec_rgb, 0.0, 255.0)
         
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
-        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
+        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb_clamp)
         ssim_rec = self.compute_ssim(Y_RGB, Y_rec_rgb)
 
         return {
@@ -261,7 +261,7 @@ class DVBCDModel():
         Y_RGB = Y_RGB.to(self.device)
         #Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
-        Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
+        #Y_rec_rgb = torch.clamp(Y_rec_rgb, 0.0, 255.0)
 
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
         psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb)
@@ -271,29 +271,25 @@ class DVBCDModel():
         H_OD = C_OD[:, 0, :, :]
         #H_OD = torch.clamp(H_OD, 0.0, H_OD.max())
         H_RGB = od2rgb_torch(undo_normalization(H_OD))
-        H_RGB = torch.clamp(H_RGB, 0.0, 255.0)
+        H_RGB_clamp = torch.clamp(H_RGB, 0.0, 255.0)
         E_OD = C_OD[:, 1, :, :]
         #E_OD = torch.clamp(E_OD, 0.0, E_OD.max())
         E_RGB = od2rgb_torch(undo_normalization(E_OD))
-        E_RGB = torch.clamp(E_RGB, 0.0, 255.0)
-        #E_RGB = (255.0*normalize_to1(E_RGB, max_val=E_RGB.max(), min_val = E_RGB.min()))
-        #print("aprox:", E_RGB.min(), E_RGB.max())
+        E_RGB_clamp = torch.clamp(E_RGB, 0.0, 255.0)
 
         C_GT_OD = C_to_OD_torch(C_GT, M_GT)
         H_OD_GT =  C_GT_OD[:, 0, :, :]
         H_RGB_GT = od2rgb_torch(H_OD_GT)
-        H_RGB_GT = torch.clamp(H_RGB_GT, 0.0, 255.0)
+        H_RGB_GT_clamp = torch.clamp(H_RGB_GT, 0.0, 255.0)
         E_OD_GT =  C_GT_OD[:, 1, :, :]
         E_RGB_GT = od2rgb_torch(E_OD_GT)
-        E_RGB_GT = torch.clamp(E_RGB_GT, 0.0, 255.0)
-        #E_RGB_GT = (255.0*normalize_to1(E_RGB_GT, max_val=E_RGB_GT.max(), min_val = E_RGB_GT.min()))
-        #print("gt:", E_RGB_GT.min(), E_RGB_GT.max())
+        E_RGB_GT_clamp = torch.clamp(E_RGB_GT, 0.0, 255.0)
 
         mse_gt_h = self.compute_mse(H_OD, H_OD_GT)
         mse_gt_e = self.compute_mse(E_OD, E_OD_GT)
 
-        psnr_gt_h = self.compute_psnr(H_RGB, H_RGB_GT)
-        psnr_gt_e = self.compute_psnr(E_RGB, E_RGB_GT)
+        psnr_gt_h = self.compute_psnr(H_RGB_clamp, H_RGB_GT_clamp)
+        psnr_gt_e = self.compute_psnr(E_RGB_clamp, E_RGB_GT_clamp)
 
         ssim_gt_h = self.compute_ssim(H_RGB, H_RGB_GT)
         ssim_gt_e = self.compute_ssim(E_RGB, E_RGB_GT)
