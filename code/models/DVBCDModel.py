@@ -366,7 +366,7 @@ class DVBCDModel():
         rest = path.split("/")[0:-1]
         name = path.split("/")[-1]
         final_path_cnet = "/".join(rest) + f"/cnet_{name}"
-        final_path_mnet = "/".join(rest) + f"/mnet_{name}"
+        final_path_mnet = "/".join(rest) + f"/mnet_{name}"        
 
         cnet_weights = torch.load(final_path_cnet)
         mnet_weights = torch.load(final_path_mnet)
@@ -381,5 +381,14 @@ class DVBCDModel():
                 name = k[7:]
                 new_mnet_weights[name] = v
             mnet_weights = new_mnet_weights
-        self.cnet.module.load_state_dict(cnet_weights)
-        self.mnet.module.load_state_dict(mnet_weights)
+
+        if self.device==torch.device('cuda') and torch.cuda.device_count() > 1:
+            self.cnet = get_cnet(self.cnet_name)
+            self.mnet = get_mnet(self.mnet_name, kernel_size=3)
+            self.cnet.load_state_dict(cnet_weights)
+            self.mnet.load_state_dict(mnet_weights)
+            self.cnet = torch.nn.DataParallel(self.cnet)
+            self.mnet = torch.nn.DataParallel(self.mnet)
+        else:
+            self.cnet.load_state_dict(cnet_weights)
+            self.mnet.load_state_dict(mnet_weights)

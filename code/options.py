@@ -1,6 +1,4 @@
 import argparse
-import numpy as np
-
 
 def set_opts():
     parser = argparse.ArgumentParser()
@@ -44,6 +42,32 @@ def set_opts():
     parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
     #parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
 
+
+    args = parser.parse_args()
+    return args
+
+def set_deconvolve_opts():
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument(
+                        '--dataset_path', default='/work/Camelyon17/work/DECONVOLUCIONES/Original/', 
+                        type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
+                        )
+    parser.add_argument(
+                        '--save_path', default='/work/work_fran/Deep_Var_BCD/results/deconvolutions/', 
+                        type=str, metavar='PATH', help="Path to save the generated files"
+                        )
+    
+    # trainning settings
+    parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
+    parser.add_argument('--pretraining_epochs', type=int, default=1, help="Pretraining epohcs (default: 1)")
+    parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")
+    parser.add_argument('--num_workers', default=16, type=int, help="Number of workers to load data, (default: 16)")
+
+    # hyper-parameters
+    parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
+    parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
+    #parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
 
     args = parser.parse_args()
     return args

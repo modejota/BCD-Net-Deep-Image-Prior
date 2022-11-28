@@ -4,7 +4,7 @@
 
 rm -f output/salida_delfos_*
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2
 
 ################################################################################################# 
 
@@ -15,6 +15,9 @@ export CUDA_VISIBLE_DEVICES=0,1,2,3
 num_workers=32
 batch_size=64
 
+#################################################################################################
+
+<<comment
 pretraining_epochs_array=(0)
 theta_val_array=(0.25 0.5)
 
@@ -26,3 +29,12 @@ do
         python code/test.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_delfos_${BASHPID}.txt 2>&1
     done
 done
+comment
+
+#################################################################################################
+
+pretraining_epochs=0
+theta_val=0.1
+save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Camelyon/
+
+python code/deconvolve.py --save_path=$save_path --pretraining_epochs=$pretraining_epochs --theta_val=$theta_val > output/salida_delfos_${BASHPID}.txt 2>&1

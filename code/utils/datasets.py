@@ -21,7 +21,9 @@ class CamelyonDataset(torch.utils.data.Dataset):
         self.centers = centers
         self.patch_size = patch_size
         self.n_samples = n_samples
+        print("Scanning files...")
         self.image_files = self.scan_files()
+        print("Loading data...")
         self.img_list = self.load_data()
         self.len = len(self.image_files)
         self.mR = torch.tensor([
@@ -166,5 +168,56 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         M_gt = torch.from_numpy(self.M_gt_list[idx]).type(torch.float32)
         #C_gt_rgb = torch.from_numpy(self.C_gt_rgb_list[idx]).type(torch.float32)
         return img, od_img, mR, C_gt, M_gt
+
+class GeneralDataset(torch.utils.data.Dataset):
+    
+    def __init__(self, data_path, patch_size=224, n_samples=None):
+        super().__init__()
+        self.data_path = data_path
+        self.patch_size = patch_size
+        self.n_samples = n_samples
+        print("Scanning files...")
+        self.image_files = self.scan_files()
+        print("Loading data...")
+        self.img_list = self.load_data()
+        self.len = len(self.image_files)
+
+    def scan_files(self):
+
+        files_vec = []
+        for filename in glob.iglob(self.data_path + '**/**', recursive=True):
+            if ".jpg" in filename:
+                files_vec.append(filename)
+        print("Found {} files".format(len(files_vec)))
+        if self.n_samples is not None:
+            files_vec = files_vec[:self.n_samples]
+        return files_vec
+    
+    def load_data(self):
+        img_list = []
+        #od_img_list = []
+        for file in self.image_files:
+            img = cv2.imread(file)
+            img = img[:,:,::-1] # Changes BGR to RGB
+
+            img_list.append(img)
+
+        return img_list
+    
+    def __len__(self):
+        return self.len
+
+    def __getitem__(self, idx):
+        img = self.img_list[idx]
+
+        if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
+            img = npimg_random_crop_patch(img, self.patch_size)
+
+        od_img = rgb2od_np(img) #Range [0, 5.54]
+        od_img = normalize_to1(od_img, -np.log(1/256), 0)
+        
+        od_img = torch.from_numpy(od_img.copy().transpose(2,0,1).astype(np.float32))
+        img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
+        return img, od_img
 
 
