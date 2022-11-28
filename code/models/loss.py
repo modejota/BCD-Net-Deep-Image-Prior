@@ -43,9 +43,11 @@ def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, t
     #loss_mse = term_mse1 + term_mse2
     
     #sample_M = out_Mnet_mean + torch.rand_like(out_Mnet_mean)*out_Mnet_var
-    patch_size = out_Cnet.shape[2]
-    Cflat = out_Cnet.view(-1, 2, patch_size * patch_size) #shape: (batch, 2, patch_size * patch_size)
-    Y_rec_sample = Y_rec + torch.matmul(torch.rand_like(out_Mnet_mean)*out_Mnet_var, Cflat)
+    H = out_Cnet.shape[2]
+    W = out_Cnet.shape[3]
+    batch_size = out_Cnet.shape[0]
+    Cflat = out_Cnet.view(-1, 2, H * W) #shape: (batch, 2, patch_size * patch_size)
+    Y_rec_sample = Y_rec + torch.matmul(torch.rand_like(out_Mnet_mean)*torch.sqrt(out_Mnet_var), Cflat).view(batch_size, 3, H, W)
     loss_mse = F.mse_loss(Y, Y_rec_sample, reduction='mean') # shape: (1,)
     
     # print('loss mse:',loss_mse)
