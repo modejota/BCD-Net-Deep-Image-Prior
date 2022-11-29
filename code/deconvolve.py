@@ -1,6 +1,7 @@
 import os
 import torch
 import h5py
+import tqdm
 
 from utils.datasets import GeneralDataset
 from models.DVBCDModel import DVBCDModel
@@ -33,7 +34,7 @@ dataset = GeneralDataset(args.dataset_path, patch_size=224)
 
 model = DVBCDModel(device=DEVICE)
 model.load(LOAD_MODEL_PATH + "best.pt", remove_module=False)
-for idx in range(len(dataset)):
+for idx in tqdm(range(len(dataset))):
     Y, Y_OD = dataset[idx]
     file = dataset.image_files[idx]
     new_file = file.split(args.dataset_path)[1]
