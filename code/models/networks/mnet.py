@@ -27,6 +27,11 @@ def get_model(net_name, fc_hidden_dim=50):
     elif net_name == "mobilenet_v3_s":
         model = torchvision.models.mobilenet_v3_small(weights=None)
         model.classifier = torch.nn.Linear(576, fc_hidden_dim)
+    elif net_name == "mobilenet_v3_s_ft":
+        model = torchvision.models.mobilenet_v3_small(weights=torchvision.models.MobileNet_V3_Small_Weights.IMAGENET1K_V1)
+        for param in model.parameters():
+            param.requires_grad = False
+        model.classifier = torch.nn.Linear(576, fc_hidden_dim)
     else:
         raise Exception("Please set correct net name!")
     return model
