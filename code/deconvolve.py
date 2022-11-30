@@ -32,7 +32,7 @@ SAVE_PATH = args.save_path + f"BCDNET_{MODEL_NAME}/"
 
 dataset = GeneralDataset(args.dataset_path, patch_size=224)
 
-model = DVBCDModel(device=DEVICE)
+model = DVBCDModel(mnet_name = args.mnet_name, cnet_name = args.cnet_name, device=DEVICE)
 model.load(LOAD_MODEL_PATH + "best.pt", remove_module=False)
 for idx in tqdm(range(len(dataset))):
     Y, Y_OD = dataset[idx]

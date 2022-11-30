@@ -16,6 +16,10 @@ def set_opts():
     parser.add_argument('--results_dir', default='/work/work_fran/Deep_Var_BCD/results/', type=str, metavar='PATH', help="Path to save the results (default: /work/work_fran/Deep_Var_BCD/results/)")   
     parser.add_argument('--save_freq', default=10, type=int, help="Frequency to save the model weights (default: 10)")
 
+    # model settings
+    parser.add_argument('--cnet_name', type=str, default='unet_6', help='Cnet model name (default: unet_6)')
+    parser.add_argument('--mnet_name', type=str, default='resnet_18_in', help='Mnet model name (default: resnet_18_in)')
+
     # trainning settings
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
@@ -57,6 +61,10 @@ def set_deconvolve_opts():
                         '--save_path', default='/work/work_fran/Deep_Var_BCD/results/deconvolutions/', 
                         type=str, metavar='PATH', help="Path to save the generated files"
                         )
+    
+    # model settings
+    parser.add_argument('--cnet_name', type=str, default='unet_6', help='Cnet model name (default: unet_6)')
+    parser.add_argument('--mnet_name', type=str, default='resnet_18_in', help='Mnet model name (default: resnet_18_in)')
     
     # trainning settings
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")

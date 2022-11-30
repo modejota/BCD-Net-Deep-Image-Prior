@@ -36,7 +36,7 @@ SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{MODEL_DIR_NAME}/")
 
 sigmaRui_sq = torch.tensor([args.sigmaRui_sq, args.sigmaRui_sq])
 model = DVBCDModel(
-                cnet_name="unet_6", mnet_name="resnet_18_in", 
+                cnet_name=args.cnet_name, mnet_name=args.mnet_name, 
                 sigmaRui_sq=sigmaRui_sq, theta_val=args.theta_val, lr_cnet=args.lr_cnet, lr_mnet=args.lr_mnet,
                 lr_decay=args.lr_decay, clip_grad_cnet=args.clip_grad_cnet, clip_grad_mnet=args.clip_grad_mnet,
                 device=DEVICE
