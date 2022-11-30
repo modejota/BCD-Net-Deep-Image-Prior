@@ -1,24 +1,48 @@
 import torch
+import torchvision
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision.models import resnet
 
+def get_model(net_name, fc_hidden_dim=50):
+    model = None
+    if net_name == "resnet_18_in":
+        model = resnet.ResNet(
+                            resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
+                            groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                            norm_layer=torch.nn.InstanceNorm2d
+                            )
+    elif net_name == "resnet_18_bn":
+        model = resnet.ResNet(
+                            resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
+                            groups=1, width_per_group=64, replace_stride_with_dilation=None,
+                            norm_layer=torch.nn.BatchNorm2d
+                            )
+    elif net_name == "resnet_18_ft":
+        model = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1)
+        for param in model.parameters():
+            param.requires_grad = False
+        num_feat = model.fc.in_features
+        model.fc = torch.nn.Linear(num_feat, fc_hidden_dim)
+    elif net_name == "mobilenet_v3_s":
+        model = torchvision.models.mobilenet_v3_small(weights=None)
+        model.classifier = torch.nn.Linear(576, fc_hidden_dim)
+    else:
+        raise Exception("Please set correct net name!")
+    return model
+
 class MNet(nn.Module):
-    def __init__(self, kernel_size=3, fc_hidden_dim=50):
+    def __init__(self, net_name="resnet_18_in", kernel_size=3, fc_hidden_dim=50):
         super().__init__()
         self.kernel_size = kernel_size
-        self.model = resnet.ResNet(
-                                resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
-                                groups=1, width_per_group=64, replace_stride_with_dilation=None,
-                                norm_layer=nn.InstanceNorm2d
-                                )
+        self.model = get_model(net_name, fc_hidden_dim)
 
         #self.model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(2, 2), padding=(3, 3), bias=False)
 
         self.M_mean = nn.Sequential(
             nn.ReLU(inplace=False),
             nn.Linear(fc_hidden_dim, 2*kernel_size),
-            nn.Sigmoid()
+            #nn.Sigmoid()
         )
 
         self.M_log_var = nn.Sequential(
@@ -44,11 +68,5 @@ class MNet(nn.Module):
         return mean, var
 
 def get_mnet(net_name, kernel_size=3, fc_hidden_dim=50):
-    if net_name == "resnet_18_in":
-        return MNet(kernel_size)
-    elif net_name == "resnet_18_bn":
-        # return ResNet18BN(kernel_size)
-        raise Exception("Not available yet!")
-    else:
-        raise Exception("Please set correct net name!")
+    return MNet(net_name, kernel_size, fc_hidden_dim)
 

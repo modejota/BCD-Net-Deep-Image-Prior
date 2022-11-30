@@ -17,7 +17,7 @@ batch_size=64
 
 pretraining_epochs_array=(0 1)
 #theta_val_array=(0.1 0.25 0.5 0.75 0.9)
-theta_val_array=(0.0 0.01 1.0)
+theta_val_array=(0.01 0.001)
 
 for pe in "${pretraining_epochs_array[@]}"
 do

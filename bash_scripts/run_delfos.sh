@@ -35,6 +35,9 @@ comment
 
 pretraining_epochs=0
 theta_val=0.1
-save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Camelyon/
+#dataset_path=/work/Camelyon17/work/DECONVOLUCIONES/Original/
+#save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Camelyon17/
+dataset_path=/data/BasesDeDatos/Alsubaie/Data/
+save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Alsubaie/
 
 python code/deconvolve.py --save_path=$save_path --pretraining_epochs=$pretraining_epochs --theta_val=$theta_val > output/salida_delfos_${BASHPID}.txt 2>&1

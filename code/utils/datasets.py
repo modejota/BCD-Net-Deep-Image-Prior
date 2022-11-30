@@ -185,9 +185,10 @@ class GeneralDataset(torch.utils.data.Dataset):
     def scan_files(self):
 
         files_vec = []
-        for filename in glob.iglob(self.data_path + '**/**', recursive=True):
-            if ".jpg" in filename:
-                files_vec.append(filename)
+        for root, dirs, files in os.walk(self.data_path):
+            for file in files:
+                if file.endswith(('.png', '.jpg', '.jpeg', 'tif', '.tiff', '.bmp', '.gif')): 
+                    files_vec.append(os.path.join(root, file))
         print("Found {} files".format(len(files_vec)))
         if self.n_samples is not None:
             files_vec = files_vec[:self.n_samples]
