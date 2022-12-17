@@ -6,28 +6,28 @@ from torchvision.models import resnet
 
 def get_model(net_name, fc_hidden_dim=50):
     model = None
-    if net_name == "resnet_18_in":
+    if net_name == "resnet18in":
         model = resnet.ResNet(
                             resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
                             groups=1, width_per_group=64, replace_stride_with_dilation=None,
                             norm_layer=torch.nn.InstanceNorm2d
                             )
-    elif net_name == "resnet_18_bn":
+    elif net_name == "resnet18bn":
         model = resnet.ResNet(
                             resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
                             groups=1, width_per_group=64, replace_stride_with_dilation=None,
                             norm_layer=torch.nn.BatchNorm2d
                             )
-    elif net_name == "resnet_18_ft":
+    elif net_name == "resnet18ft":
         model = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1)
         for param in model.parameters():
             param.requires_grad = False
         num_feat = model.fc.in_features
         model.fc = torch.nn.Linear(num_feat, fc_hidden_dim)
-    elif net_name == "mobilenet_v3_s":
+    elif net_name == "mobilenetv3s":
         model = torchvision.models.mobilenet_v3_small(weights=None)
         model.classifier = torch.nn.Linear(576, fc_hidden_dim)
-    elif net_name == "mobilenet_v3_s_ft":
+    elif net_name == "mobilenetv3sft":
         model = torchvision.models.mobilenet_v3_small(weights=torchvision.models.MobileNet_V3_Small_Weights.IMAGENET1K_V1)
         for param in model.parameters():
             param.requires_grad = False
@@ -37,7 +37,7 @@ def get_model(net_name, fc_hidden_dim=50):
     return model
 
 class MNet(nn.Module):
-    def __init__(self, net_name="resnet_18_in", kernel_size=3, fc_hidden_dim=50):
+    def __init__(self, net_name="resnet18in", kernel_size=3, fc_hidden_dim=50):
         super().__init__()
         self.kernel_size = kernel_size
         self.model = get_model(net_name, fc_hidden_dim)
@@ -67,7 +67,7 @@ class MNet(nn.Module):
         l1 = torch.norm(mean, dim=1, keepdim=True) # shape (batch_size, )
         mean = torch.div(mean , l1 + 1e-10)
 
-        var = torch.exp(self.M_log_var(x))**2 + 1e-10 # shape (batch_size, 2)
+        var = torch.exp(self.M_log_var(x)) + 1e-10 # shape (batch_size, 2)
         var = var.view(var.shape[0], 1, 2)
 
         return mean, var

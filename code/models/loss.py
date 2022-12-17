@@ -5,7 +5,7 @@ import torch.nn.functional as F
 CONST_KL = 1.0
 CONST_MSE = 1.0
 
-def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, theta_val=0.5):
+def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, lambda_val=0.5):
     """
     Args:
         out_CNet: output of CNet, estimation of the separated concentrations in the image, one layer for each stain,
@@ -55,13 +55,13 @@ def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, t
     loss_kl = CONST_KL*loss_kl
     loss_mse = CONST_MSE*loss_mse
 
-    #loss_mse = 0.5 * (1.0/theta_val**2) * loss_mse
+    loss_mse = 0.5 * (1.0/lambda_val**2) * loss_mse
     
-    #loss_mse = (1.0-theta_val)*loss_mse
-    #loss_kl = (theta_val)*loss_kl
+    #loss_mse = (1.0-lambda_val)*loss_mse
+    #loss_kl = (lambda_val)*loss_kl
     
     loss = loss_mse + loss_kl
-    loss = (1.0-theta_val)*loss_mse + theta_val*loss_kl
+    #loss = (1.0-lambda_val)*loss_mse + lambda_val*loss_kl
 
     return loss, loss_kl, loss_mse
     #return {'loss': loss, 'loss_mse': loss_mse, 'loss_kl': loss_kl, 'loss_kl_h': loss_kl_h, 'loss_kl_e': loss_kl_e, }

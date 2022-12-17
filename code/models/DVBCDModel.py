@@ -15,8 +15,8 @@ from utils.utils_BCD import normalize_to1, C_to_OD_torch, od2rgb_torch, undo_nor
 
 class DVBCDModel():
     def __init__(
-                self, cnet_name="unet_6", mnet_name="resnet_18_in", 
-                sigmaRui_sq=torch.tensor([0.05, 0.05]), theta_val=1.0, lr_cnet=1e-4, 
+                self, cnet_name="unet6", mnet_name="resnet18in", 
+                sigmaRui_sq=torch.tensor([0.05, 0.05]), lambda_val=1.0, lr_cnet=1e-4, 
                 lr_mnet=1e-4, lr_decay=0.1, clip_grad_cnet=np.Inf, clip_grad_mnet=np.Inf,
                 device=torch.device('cpu')
                 ):
@@ -34,8 +34,9 @@ class DVBCDModel():
 
         #self.sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq]).to(self.device)
         self.sigmaRui_sq = sigmaRui_sq
-        self.theta_val = theta_val
-        self.pretraining_theta = 0.9
+        self.lambda_val = lambda_val
+        #self.pretraining_theta_val = 0.9
+        self.pretraining_lambda_val = 0.0001
 
         self.lr_cnet = lr_cnet
         self.lr_mnet = lr_mnet
@@ -106,11 +107,11 @@ class DVBCDModel():
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
         if pretraining:
-            theta_val = self.pretraining_theta
+            lambda_val = self.pretraining_lambda_val
         else:
-            theta_val = self.theta_val
+            lambda_val = self.lambda_val
         
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, theta_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, lambda_val)
 
         loss.backward()
         
@@ -224,16 +225,16 @@ class DVBCDModel():
 
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
 
         Y_RGB = Y_RGB.to(self.device)
-        #Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
+        Y_RGB_clamp = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
         Y_rec_rgb_clamp = torch.clamp(Y_rec_rgb, 0.0, 255.0)
         
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
-        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb_clamp)
-        ssim_rec = self.compute_ssim(Y_RGB, Y_rec_rgb)
+        psnr_rec = self.compute_psnr(Y_RGB_clamp, Y_rec_rgb_clamp)
+        ssim_rec = self.compute_ssim(Y_RGB_clamp, Y_rec_rgb_clamp)
 
         return {
             f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item(), 
@@ -256,7 +257,7 @@ class DVBCDModel():
 
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
 
         Y_RGB = Y_RGB.to(self.device)
         #Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
@@ -291,8 +292,8 @@ class DVBCDModel():
         psnr_gt_h = self.compute_psnr(H_RGB_clamp, H_RGB_GT_clamp)
         psnr_gt_e = self.compute_psnr(E_RGB_clamp, E_RGB_GT_clamp)
 
-        ssim_gt_h = self.compute_ssim(H_RGB, H_RGB_GT)
-        ssim_gt_e = self.compute_ssim(E_RGB, E_RGB_GT)
+        ssim_gt_h = self.compute_ssim(H_RGB_clamp, H_RGB_GT_clamp)
+        ssim_gt_e = self.compute_ssim(E_RGB_clamp, E_RGB_GT_clamp)
 
         return {
             f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item(), 
