@@ -114,6 +114,7 @@ class UNet(nn.Module):
         out = self.up1(out, self.skip_conv1(skip1))
 
         out = self.final_conv(out)
+        #out = torch.exp(out)
         if self.learn_residual:
             out[:, :3, :, :] = out[:, :3, :, :] + x
         return out

@@ -4,18 +4,17 @@
 
 rm -f output/salida_dodona_*
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2
 
 ################################################################################################# 
 
 num_workers=32
 batch_size=64
 
-pretraining_epochs_array=(0)
+pretraining_epochs_array=(0 1)
 #lambda_val_array=(0.1 0.25 0.5 0.75 0.9)
-lambda_val_array=(0.001)
-mnet_name_array=(resnet18in resnet18bn resnet18ft mobilenetv3s mobilenetv3sft)
-
+lambda_val_array=(0.001 0.01 0.1 1.0)
+mnet_name_array=(resnet18in resnet18ft mobilenetv3s mobilenetv3sft)
 
 for pe in "${pretraining_epochs_array[@]}"
 do

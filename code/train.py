@@ -4,7 +4,7 @@ import torch
 from utils.callbacks import EarlyStopping, ModelCheckpoint, History
 from options import set_train_opts
 
-from utils.utils_data import get_train_dataloaders
+from utils.utils_data import get_train_dataloaders, get_wssb_test_dataloader
 from models.DVBCDModel import DVBCDModel
 
 print(torch.__version__)
@@ -29,6 +29,7 @@ MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 SAVE_MODEL_NAME = f"{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.lambda_val}lambda_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{SAVE_MODEL_NAME}/")
 HISTORY_PATH = os.path.join(args.save_history_dir, f"{SAVE_MODEL_NAME}.csv")
+VAL_TYPE = args.val_type
 
 if not os.path.exists(args.save_history_dir):
     os.makedirs(args.save_history_dir)
@@ -36,8 +37,9 @@ if not os.path.exists(args.save_history_dir):
 if not os.path.exists(SAVE_MODEL_PATH):
     os.makedirs(SAVE_MODEL_PATH)
 
-
 train_dataloader, val_dataloader = get_train_dataloaders(args.camelyon_data_path, args.patch_size, args.batch_size, args.num_workers, val_prop=args.val_prop, n_samples=args.n_samples)
+if VAL_TYPE == "GT":
+    val_dataloader = get_wssb_test_dataloader(args.wssb_data_path, args.num_workers)
 
 sigmaRui_sq = torch.tensor([args.sigmaRui_sq, args.sigmaRui_sq])
 model = DVBCDModel(
@@ -52,7 +54,7 @@ callbacks = [
     History(path = HISTORY_PATH)]
 model.set_callbacks(callbacks)
 if args.pretraining_epochs > 0:
-    model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True)
+    model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True, val_type=VAL_TYPE)
     model.init_optimizers()
-model.fit(args.epochs, train_dataloader, val_dataloader, pretraining=False)
+model.fit(args.epochs, train_dataloader, val_dataloader, pretraining=False, val_type=VAL_TYPE)
 

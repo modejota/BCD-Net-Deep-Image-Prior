@@ -7,27 +7,32 @@ from torchvision.models import resnet
 def get_model(net_name, fc_hidden_dim=50):
     model = None
     if net_name == "resnet18in":
+        print(net_name)
         model = resnet.ResNet(
                             resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
                             groups=1, width_per_group=64, replace_stride_with_dilation=None,
                             norm_layer=torch.nn.InstanceNorm2d
                             )
     elif net_name == "resnet18bn":
+        print(net_name)
         model = resnet.ResNet(
                             resnet.BasicBlock, [2, 2, 2, 2], num_classes=fc_hidden_dim, zero_init_residual=False,
                             groups=1, width_per_group=64, replace_stride_with_dilation=None,
                             norm_layer=torch.nn.BatchNorm2d
                             )
     elif net_name == "resnet18ft":
+        print(net_name)
         model = torchvision.models.resnet18(weights=torchvision.models.ResNet18_Weights.IMAGENET1K_V1)
         for param in model.parameters():
             param.requires_grad = False
         num_feat = model.fc.in_features
         model.fc = torch.nn.Linear(num_feat, fc_hidden_dim)
     elif net_name == "mobilenetv3s":
+        print(net_name)
         model = torchvision.models.mobilenet_v3_small(weights=None)
         model.classifier = torch.nn.Linear(576, fc_hidden_dim)
     elif net_name == "mobilenetv3sft":
+        print(net_name)
         model = torchvision.models.mobilenet_v3_small(weights=torchvision.models.MobileNet_V3_Small_Weights.IMAGENET1K_V1)
         for param in model.parameters():
             param.requires_grad = False
@@ -63,7 +68,7 @@ class MNet(nn.Module):
         x = F.instance_norm(x)
         x = self.model(x)
         mean = self.M_mean(x) # shape (batch_size, 2*kernel_size)
-        mean = mean.view(mean.shape[0], 3, 2)
+        mean = mean.view(mean.shape[0], 3, 2) # shape (batch_size, kernel_size, 2)
         l1 = torch.norm(mean, dim=1, keepdim=True) # shape (batch_size, )
         mean = torch.div(mean , l1 + 1e-10)
 

@@ -70,6 +70,7 @@ def set_train_opts():
     parser.add_argument('--mnet_name', type=str, default='resnet18in', help='Mnet model name (default: resnet18in)')
 
     # trainning settings
+    parser.add_argument('--val_type', type=str, default='normal', help='Validation type (default: normal)')
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
     parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data (default: 0.1)")

@@ -15,7 +15,7 @@ from utils.utils_BCD import normalize_to1, C_to_OD_torch, od2rgb_torch, undo_nor
 
 class DVBCDModel():
     def __init__(
-                self, cnet_name="unet6", mnet_name="resnet18in", 
+                self, cnet_name, mnet_name, 
                 sigmaRui_sq=torch.tensor([0.05, 0.05]), lambda_val=1.0, lr_cnet=1e-4, 
                 lr_mnet=1e-4, lr_decay=0.1, clip_grad_cnet=np.Inf, clip_grad_mnet=np.Inf,
                 device=torch.device('cpu')
@@ -124,16 +124,17 @@ class DVBCDModel():
         Cnet_opt.step()
 
         Y_RGB = Y_RGB.to(self.device)
+        Y_RGB_clamp = torch.clamp(Y_RGB, 0.0, 255.0)
         Y_rec_rgb = od2rgb_torch(undo_normalization(Y_rec_od))
         Y_rec_rgb_clamp = torch.clamp(Y_rec_rgb, 0.0, 255.0)
 
         mse_rec = self.compute_mse(Y_OD, Y_rec_od)
-        psnr_rec = self.compute_psnr(Y_RGB, Y_rec_rgb_clamp)
-        ssim_rec = self.compute_ssim(Y_RGB, Y_rec_rgb)
+        psnr_rec = self.compute_psnr(Y_RGB_clamp, Y_rec_rgb_clamp)
+        ssim_rec = self.compute_ssim(Y_RGB_clamp, Y_rec_rgb_clamp)
 
         return {'train_loss' : loss.item(), 'train_loss_mse' : loss_mse.item(), 'train_loss_kl' : loss_kl.item(), 'train_mse_rec' : mse_rec.item(), 'train_psnr_rec' : psnr_rec.item(), 'train_ssim_rec' : ssim_rec.item()}
 
-    def fit(self, max_epochs, train_dataloader, val_dataloader=None, pretraining=False):
+    def fit(self, max_epochs, train_dataloader, val_dataloader=None, pretraining=False, val_type='normal'):
         if val_dataloader is None:
             val_dataloader = train_dataloader
 
@@ -173,13 +174,19 @@ class DVBCDModel():
                     pbar.set_postfix({k : str(round(v, 4)) for k, v in m_dic.items()})            
 
             # Eval loop
+
+            if val_type == 'normal':
+                val_step_method = self.validation_step
+            elif val_type == 'GT':
+                val_step_method = self.validation_step_GT
+
             self.eval()
             pbar = tqdm(enumerate(val_dataloader), total=len(val_dataloader))
             pbar.set_description(f"Epoch {epoch} - Validation")
             with torch.no_grad():
                 for batch_idx, batch in pbar:
                     self.callbacks_list.on_val_step_begin(self, batch_idx)
-                    m_dic = self.validation_step(batch, batch_idx)
+                    m_dic = val_step_method(batch, batch_idx)
                     self.callbacks_list.on_val_step_end(self)
                     pbar.set_postfix({k : str(round(v, 4)) for k, v in m_dic.items()})
                     for k, v in m_dic.items():

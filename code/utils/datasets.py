@@ -86,8 +86,9 @@ class CamelyonDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         img = self.img_list[idx]
 
-        if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
-            img = npimg_random_crop_patch(img, self.patch_size)
+        if self.patch_size is not None:
+            if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
+                img = npimg_random_crop_patch(img, self.patch_size)
 
         od_img = rgb2od_np(img) #Range [0, 5.54]
         od_img = normalize_to1(od_img, -np.log(1/256), 0)
@@ -171,7 +172,7 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
 
 class GeneralDataset(torch.utils.data.Dataset):
     
-    def __init__(self, data_path, patch_size=224, n_samples=None):
+    def __init__(self, data_path, patch_size=None, n_samples=None):
         super().__init__()
         self.data_path = data_path
         self.patch_size = patch_size
@@ -211,8 +212,9 @@ class GeneralDataset(torch.utils.data.Dataset):
     def __getitem__(self, idx):
         img = self.img_list[idx]
 
-        if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
-            img = npimg_random_crop_patch(img, self.patch_size)
+        if self.patch_size is not None:
+            if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
+                img = npimg_random_crop_patch(img, self.patch_size)
 
         od_img = rgb2od_np(img) #Range [0, 5.54]
         od_img = normalize_to1(od_img, -np.log(1/256), 0)
