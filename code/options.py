@@ -43,8 +43,8 @@ def set_opts():
    
     # hyper-parameters
     parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    parser.add_argument('--lambda_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
-    #parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
+    parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
+    #parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
 
 
     args = parser.parse_args()
@@ -93,8 +93,8 @@ def set_train_opts():
    
     # hyper-parameters
     parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    #parser.add_argument('--lambda_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
-    parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
+    #parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
+    parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
 
 
     args = parser.parse_args()
@@ -130,8 +130,8 @@ def set_test_opts():
    
     # hyper-parameters
     parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    parser.add_argument('--lambda_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
-    #parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
+    parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
+    #parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
 
 
     args = parser.parse_args()
@@ -161,8 +161,8 @@ def set_deconvolve_opts():
 
     # hyper-parameters
     parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    parser.add_argument('--lambda_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
-    #parser.add_argument('--lambda_val', default=0.5, type=float, help="Lambda parameter to balance the loss function (default: 0.5)")
+    parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
+    #parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
 
     args = parser.parse_args()
     return args

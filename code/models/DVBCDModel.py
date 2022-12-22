@@ -35,7 +35,7 @@ class DVBCDModel():
         #self.sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq]).to(self.device)
         self.sigmaRui_sq = sigmaRui_sq
         self.theta_val = theta_val
-        self.pretraining_theta_val = 0.9
+        self.pretraining_theta_val = 0.99
         #self.pretraining_lambda_val = 0.0001
 
         self.lr_cnet = lr_cnet
@@ -277,12 +277,10 @@ class DVBCDModel():
 
         C_OD = C_to_OD_torch(out_Cnet, out_Mnet_mean)
         H_OD = C_OD[:, 0, :, :]
-        #H_OD = torch.clamp(H_OD, 0.0, H_OD.max())
         H_RGB = od2rgb_torch(undo_normalization(H_OD))
         #H_RGB = od2rgb_torch(H_OD)
         H_RGB_clamp = torch.clamp(H_RGB, 0.0, 255.0)
         E_OD = C_OD[:, 1, :, :]
-        #E_OD = torch.clamp(E_OD, 0.0, E_OD.max())
         E_RGB = od2rgb_torch(undo_normalization(E_OD))
         #E_RGB = od2rgb_torch(E_OD)
         E_RGB_clamp = torch.clamp(E_RGB, 0.0, 255.0)
