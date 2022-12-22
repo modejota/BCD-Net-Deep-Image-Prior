@@ -16,7 +16,7 @@ from utils.utils_BCD import normalize_to1, C_to_OD_torch, od2rgb_torch, undo_nor
 class DVBCDModel():
     def __init__(
                 self, cnet_name, mnet_name, 
-                sigmaRui_sq=torch.tensor([0.05, 0.05]), lambda_val=1.0, lr_cnet=1e-4, 
+                sigmaRui_sq=torch.tensor([0.05, 0.05]), theta_val=1.0, lr_cnet=1e-4, 
                 lr_mnet=1e-4, lr_decay=0.1, clip_grad_cnet=np.Inf, clip_grad_mnet=np.Inf,
                 device=torch.device('cpu')
                 ):
@@ -34,9 +34,9 @@ class DVBCDModel():
 
         #self.sigmaRui_sq = torch.tensor([args.sigmaRui_h_sq, args.sigmaRui_e_sq]).to(self.device)
         self.sigmaRui_sq = sigmaRui_sq
-        self.lambda_val = lambda_val
-        #self.pretraining_theta_val = 0.9
-        self.pretraining_lambda_val = 0.0001
+        self.theta_val = theta_val
+        self.pretraining_theta_val = 0.9
+        #self.pretraining_lambda_val = 0.0001
 
         self.lr_cnet = lr_cnet
         self.lr_mnet = lr_mnet
@@ -107,11 +107,11 @@ class DVBCDModel():
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
         if pretraining:
-            lambda_val = self.pretraining_lambda_val
+            theta_val = self.pretraining_theta_val
         else:
-            lambda_val = self.lambda_val
+            theta_val = self.theta_val
         
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, lambda_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, theta_val)
 
         loss.backward()
         
@@ -232,7 +232,7 @@ class DVBCDModel():
 
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
         Y_RGB_clamp = torch.clamp(Y_RGB, 0.0, 255.0)
@@ -264,7 +264,7 @@ class DVBCDModel():
 
         out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.lambda_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
 
         Y_RGB = Y_RGB.to(self.device)
         #Y_RGB = torch.clamp(Y_RGB, 0.0, 255.0)
@@ -279,10 +279,12 @@ class DVBCDModel():
         H_OD = C_OD[:, 0, :, :]
         #H_OD = torch.clamp(H_OD, 0.0, H_OD.max())
         H_RGB = od2rgb_torch(undo_normalization(H_OD))
+        #H_RGB = od2rgb_torch(H_OD)
         H_RGB_clamp = torch.clamp(H_RGB, 0.0, 255.0)
         E_OD = C_OD[:, 1, :, :]
         #E_OD = torch.clamp(E_OD, 0.0, E_OD.max())
         E_RGB = od2rgb_torch(undo_normalization(E_OD))
+        #E_RGB = od2rgb_torch(E_OD)
         E_RGB_clamp = torch.clamp(E_RGB, 0.0, 255.0)
 
         C_GT_OD = C_to_OD_torch(C_GT, M_GT)
@@ -295,19 +297,22 @@ class DVBCDModel():
 
         mse_gt_h = self.compute_mse(H_OD, H_OD_GT)
         mse_gt_e = self.compute_mse(E_OD, E_OD_GT)
+        mse_gt = (mse_gt_h + mse_gt_e) / 2.0
 
         psnr_gt_h = self.compute_psnr(H_RGB_clamp, H_RGB_GT_clamp)
         psnr_gt_e = self.compute_psnr(E_RGB_clamp, E_RGB_GT_clamp)
+        psnr_gt = (psnr_gt_h + psnr_gt_e) / 2.0
 
         ssim_gt_h = self.compute_ssim(H_RGB_clamp, H_RGB_GT_clamp)
         ssim_gt_e = self.compute_ssim(E_RGB_clamp, E_RGB_GT_clamp)
+        ssim_gt = (ssim_gt_h + ssim_gt_e) / 2.0
 
         return {
             f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item(), 
             f'{prefix}_mse_rec' : mse_rec.item(), f'{prefix}_psnr_rec' : psnr_rec.item(), f'{prefix}_ssim_rec' : ssim_rec.item(),
-            f'{prefix}_mse_gt_h' : mse_gt_h.item(), f'{prefix}_mse_gt_e' : mse_gt_e.item(), 
-            f'{prefix}_psnr_gt_h' : psnr_gt_h.item(), f'{prefix}_psnr_gt_e' : psnr_gt_e.item(),
-            f'{prefix}_ssim_gt_h' : ssim_gt_h.item(), f'{prefix}_ssim_gt_e' : ssim_gt_e.item()
+            f'{prefix}_mse_gt' : mse_gt.item(), f'{prefix}_mse_gt_h' : mse_gt_h.item(), f'{prefix}_mse_gt_e' : mse_gt_e.item(), 
+            f'{prefix}_psnr_gt' : psnr_gt.item(), f'{prefix}_psnr_gt_h' : psnr_gt_h.item(), f'{prefix}_psnr_gt_e' : psnr_gt_e.item(),
+            f'{prefix}_ssim_gt' : ssim_gt.item(), f'{prefix}_ssim_gt_h' : ssim_gt_h.item(), f'{prefix}_ssim_gt_e' : ssim_gt_e.item(), 
             }
 
     def evaluate(self, test_dataloader):

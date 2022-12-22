@@ -20,7 +20,13 @@ def get_camelyon_test_dataloader(camelyon_data_path, patch_size=None, num_worker
     test_dataloader_camelyon = torch.utils.data.DataLoader(test_dataset_camelyon, batch_size=1, shuffle=False, num_workers=num_workers)
     return test_dataloader_camelyon
 
-def get_wssb_test_dataloader(wssb_data_path, num_workers=64):
+def get_wssb_dataloader(wssb_data_path, num_workers=64):
+    
+    test_dataset_wssb = WSSBDatasetTest(wssb_data_path, organ_list=['Lung', 'Breast', 'Colon'])
+    test_dataloader_wssb = torch.utils.data.DataLoader(test_dataset_wssb, batch_size=1, shuffle=False, num_workers=num_workers)
+    return test_dataloader_wssb
+
+def get_wssb_dataloader_dict(wssb_data_path, num_workers=64):
     
     test_dataloader_wssb_dict = {}
     for organ in ['Lung', 'Breast', 'Colon']:
