@@ -1,9 +1,9 @@
 import os
 import torch
 import h5py
-import tqdm
+from tqdm import tqdm
 
-from utils.datasets import GeneralDataset
+from utils.utils_data import get_files_dataloader
 from models.DVBCDModel import DVBCDModel
 from options import set_deconvolve_opts
 
@@ -26,28 +26,40 @@ for arg in vars(args):
 
 MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 MODEL_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
-LOAD_MODEL_PATH = MAIN_PATH + f"weights/{MODEL_NAME}/"
+WEIGHTS_PATH = args.weights_path + f"{MODEL_NAME}/"
 
 SAVE_PATH = args.save_path + f"BCDNET_{MODEL_NAME}/"
 
-dataset = GeneralDataset(args.dataset_path, patch_size=None)
+dataloader = get_files_dataloader(args.dataset_path, None, args.batch_size, args.num_workers)
 
 model = DVBCDModel(mnet_name = args.mnet_name, cnet_name = args.cnet_name, device=DEVICE)
-model.load(LOAD_MODEL_PATH + "best.pt", remove_module=False)
-for idx in tqdm(range(len(dataset))):
-    Y, Y_OD = dataset[idx]
-    file = dataset.image_files[idx]
-    new_file = file.split(args.dataset_path)[1]
-    new_file = new_file.split('.')[0] + ".Results.mat"
-    new_file = SAVE_PATH + new_file
+model.load(WEIGHTS_PATH + "best.pt", remove_module=False)
+model.eval()
 
-    Y_OD = Y_OD.unsqueeze(0)
+print("Deconvolving...")
+filenames_list = []
+out_Mnet_mean_list = []
+out_Cnet_list = []
+for idx, batch in enumerate(tqdm(dataloader)):
+    Y, Y_OD, filenames = batch
     Y_OD = Y_OD.to(DEVICE)
     out_Mnet_mean, _, out_Cnet, _ = model.forward(Y_OD)
     out_Mnet_mean = out_Mnet_mean.cpu().detach().numpy()
-    out_Mnet_mean = out_Mnet_mean.squeeze(0)
     out_Cnet = out_Cnet.cpu().detach().numpy()
-    out_Cnet = out_Cnet.squeeze(0)
+
+    out_Mnet_mean_list = out_Mnet_mean_list + list(out_Mnet_mean)
+    out_Cnet_list = out_Cnet_list + list(out_Cnet)
+    filenames_list = filenames_list + list(filenames)
+
+print("Saving files...")
+for idx in tqdm(range(len(filenames_list))):
+    filename = filenames_list[idx]
+    new_file = filename.split(args.dataset_path)[1]
+    new_file = new_file.split('.')[0] + ".Results.mat"
+    new_file = SAVE_PATH + new_file
+
+    out_Mnet_mean = out_Mnet_mean_list[idx]
+    out_Cnet = out_Cnet_list[idx]
 
     if not os.path.exists(os.path.dirname(new_file)):
         os.makedirs(os.path.dirname(new_file))

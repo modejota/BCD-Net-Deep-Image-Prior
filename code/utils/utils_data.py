@@ -1,5 +1,5 @@
 import torch
-from .datasets import CamelyonDataset, WSSBDatasetTest
+from .datasets import CamelyonDataset, WSSBDatasetTest, FilesDataset
 
 def get_train_dataloaders(camelyon_data_path, patch_size=224, batch_size=16, num_workers=64, val_prop = 0.2, n_samples=None, train_centers=[0,2,4]):
     dataset = CamelyonDataset(camelyon_data_path, train_centers, patch_size=patch_size, n_samples=n_samples)
@@ -34,3 +34,10 @@ def get_wssb_dataloader_dict(wssb_data_path, num_workers=64):
         test_dataloader_wssb_dict[organ] = torch.utils.data.DataLoader(test_dataset_wssb, batch_size=1, shuffle=False, num_workers=num_workers)
 
     return test_dataloader_wssb_dict
+
+def get_files_dataloader(files_path, patch_size=None, batch_size = 16, num_workers=64):
+    dataset = FilesDataset(files_path, patch_size=patch_size)
+    if len(dataset) < batch_size:
+        batch_size = len(dataset)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
+    return dataloader

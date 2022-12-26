@@ -4,7 +4,7 @@
 
 rm -f output/salida_delfos_*
 
-export CUDA_VISIBLE_DEVICES=0,1,2
+export CUDA_VISIBLE_DEVICES=0,1,2,3
 
 ################################################################################################# 
 
@@ -12,8 +12,8 @@ export CUDA_VISIBLE_DEVICES=0,1,2
 #python code/test.py --epochs=5 --sigmaRui_sq=0.05 --theta_val=0.5 --pretraining_epochs=0 --n_samples=5000 --save_freq=10 > output/salida_${BASHPID}.txt 2>&1
 
 
-num_workers=32
-batch_size=64
+num_workers=16
+batch_size=32
 
 #################################################################################################
 
@@ -35,9 +35,9 @@ comment
 
 pretraining_epochs=0
 theta_val=0.1
-#dataset_path=/work/Camelyon17/work/DECONVOLUCIONES/Original/
-#save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Camelyon17/
-dataset_path=/data/BasesDeDatos/Alsubaie/Data/
-save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Alsubaie/
+dataset_path=/work/Camelyon17/work/DECONVOLUCIONES/Original/
+save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Camelyon17/
+#dataset_path=/data/BasesDeDatos/Alsubaie/Data/
+#save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Alsubaie/
 
-python code/deconvolve.py --save_path=$save_path --pretraining_epochs=$pretraining_epochs --theta_val=$theta_val > output/salida_delfos_${BASHPID}.txt 2>&1
+python code/deconvolve.py --batch_size=$batch_size --num_workers=$num_workers --save_path=$save_path --pretraining_epochs=$pretraining_epochs --theta_val=$theta_val > output/salida_delfos_${BASHPID}.txt 2>&1

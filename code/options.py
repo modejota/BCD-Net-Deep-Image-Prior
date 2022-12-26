@@ -148,12 +148,17 @@ def set_deconvolve_opts():
                         '--save_path', default='/work/work_fran/Deep_Var_BCD/results/deconvolutions/', 
                         type=str, metavar='PATH', help="Path to save the generated files"
                         )
+    parser.add_argument(
+                        '--weights_path', default='/work/work_fran/Deep_Var_BCD/weights/', 
+                        type=str, metavar='PATH', help="Path to save the generated files"
+                        )
     
     # model settings
     parser.add_argument('--cnet_name', type=str, default='unet6', help='Cnet model name (default: unet6)')
     parser.add_argument('--mnet_name', type=str, default='resnet18in', help='Mnet model name (default: resnet18in)')
     
     # trainning settings
+    parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
     parser.add_argument('--pretraining_epochs', type=int, default=1, help="Pretraining epohcs (default: 1)")
     parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")

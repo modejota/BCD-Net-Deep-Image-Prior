@@ -4,17 +4,39 @@
 
 rm -f output/salida_dodona_*
 
-export CUDA_VISIBLE_DEVICES=0,2
+export CUDA_VISIBLE_DEVICES=0,1,2
 
 ################################################################################################# 
 
 num_workers=32
 batch_size=64
 
+<<comment
 mnet_name_array=(mobilenetv3s resnet18ft)
 pretraining_epochs_array=(0)
-sigmaRui_sq_array=(0.05 0.2 1.0)
-theta_val_array=(0.5 0.1 0.01)
+sigmaRui_sq_array=(0.005 0.05 0.1)
+theta_val_array=(0.7 0.5 0.2)
+
+for mnet_name in "${mnet_name_array[@]}"
+do
+    for pe in "${pretraining_epochs_array[@]}"
+    do
+        for sigmaRui_sq in "${sigmaRui_sq_array[@]}"
+        do
+            for theta in "${theta_val_array[@]}"
+            do
+                python code/train.py --val_type=GT --sigmaRui_sq=$sigmaRui_sq --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta --mnet_name=$mnet_name > output/salida_dodona_${BASHPID}.txt 2>&1
+                python code/test.py --sigmaRui_sq=$sigmaRui_sq --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta --mnet_name=$mnet_name > output/salida_dodona_${BASHPID}.txt 2>&1
+            done
+        done
+    done
+done
+comment
+
+mnet_name_array=(mobilenetv3s)
+pretraining_epochs_array=(0)
+sigmaRui_sq_array=(0.01)
+theta_val_array=(0.7 0.5 0.2)
 
 for mnet_name in "${mnet_name_array[@]}"
 do

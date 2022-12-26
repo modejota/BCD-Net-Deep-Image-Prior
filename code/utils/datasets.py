@@ -170,7 +170,7 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         #C_gt_rgb = torch.from_numpy(self.C_gt_rgb_list[idx]).type(torch.float32)
         return img, od_img, mR, C_gt, M_gt
 
-class GeneralDataset(torch.utils.data.Dataset):
+class FilesDataset(torch.utils.data.Dataset):
     
     def __init__(self, data_path, patch_size=None, n_samples=None):
         super().__init__()
@@ -190,6 +190,7 @@ class GeneralDataset(torch.utils.data.Dataset):
             for file in files:
                 if file.endswith(('.png', '.jpg', '.jpeg', 'tif', '.tiff', '.bmp', '.gif')): 
                     files_vec.append(os.path.join(root, file))
+        files_vec = list(set(files_vec))
         print("Found {} files".format(len(files_vec)))
         if self.n_samples is not None:
             files_vec = files_vec[:self.n_samples]
@@ -211,6 +212,7 @@ class GeneralDataset(torch.utils.data.Dataset):
 
     def __getitem__(self, idx):
         img = self.img_list[idx]
+        file = self.image_files[idx]
 
         if self.patch_size is not None:
             if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
@@ -221,6 +223,6 @@ class GeneralDataset(torch.utils.data.Dataset):
         
         od_img = torch.from_numpy(od_img.copy().transpose(2,0,1).astype(np.float32))
         img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
-        return img, od_img
+        return img, od_img, file
 
 
