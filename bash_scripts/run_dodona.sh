@@ -11,11 +11,10 @@ export CUDA_VISIBLE_DEVICES=0,1,2
 num_workers=32
 batch_size=64
 
-<<comment
-mnet_name_array=(mobilenetv3s resnet18ft)
+mnet_name_array=(mobilenetv3s)
 pretraining_epochs_array=(0)
-sigmaRui_sq_array=(0.005 0.05 0.1)
-theta_val_array=(0.7 0.5 0.2)
+sigmaRui_sq_array=(0.05)
+theta_val_array=(1.0 0.9 0.8 0.6 0.4 0.3 0.1 0.0)
 
 for mnet_name in "${mnet_name_array[@]}"
 do
@@ -31,12 +30,11 @@ do
         done
     done
 done
-comment
 
-mnet_name_array=(mobilenetv3s)
+mnet_name_array=(resnet18ft)
 pretraining_epochs_array=(0)
-sigmaRui_sq_array=(0.01)
-theta_val_array=(0.7 0.5 0.2)
+sigmaRui_sq_array=(0.05)
+theta_val_array=(1.0 0.9 0.8 0.7 0.6 0.5 0.4 0.3 0.2 0.1 0.0)
 
 for mnet_name in "${mnet_name_array[@]}"
 do

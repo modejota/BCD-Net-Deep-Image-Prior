@@ -4,35 +4,38 @@
 
 rm -f output/salida_delfos_*
 
-export CUDA_VISIBLE_DEVICES=0,1,2,3
+export CUDA_VISIBLE_DEVICES=0,1,2
 
-################################################################################################# 
-
-#python code/train.py --epochs=5 --sigmaRui_sq=0.05 --theta_val=0.5 --pretraining_epochs=0 --n_samples=5000 --save_freq=10 > output/salida_${BASHPID}.txt 2>&1
-#python code/test.py --epochs=5 --sigmaRui_sq=0.05 --theta_val=0.5 --pretraining_epochs=0 --n_samples=5000 --save_freq=10 > output/salida_${BASHPID}.txt 2>&1
-
+#################################################################################################
 
 num_workers=16
 batch_size=32
 
 #################################################################################################
 
-<<comment
+mnet_name_array=(mobilenetv3s)
 pretraining_epochs_array=(0)
-theta_val_array=(0.25 0.5)
+sigmaRui_sq_array=(0.05)
+theta_val_array=(1.0 0.9 0.8 0.6 0.4 0.3 0.1 0.0)
 
-for pe in "${pretraining_epochs_array[@]}"
+for mnet_name in "${mnet_name_array[@]}"
 do
-    for theta in "${theta_val_array[@]}"
+    for pe in "${pretraining_epochs_array[@]}"
     do
-        #python code/train.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_${BASHPID}.txt 2>&1
-        python code/test.py --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta > output/salida_delfos_${BASHPID}.txt 2>&1
+        for sigmaRui_sq in "${sigmaRui_sq_array[@]}"
+        do
+            for theta in "${theta_val_array[@]}"
+            do
+                python code/train.py --val_type=GT --sigmaRui_sq=$sigmaRui_sq --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta --mnet_name=$mnet_name > output/salida_delfos_${BASHPID}.txt 2>&1
+                python code/test.py --sigmaRui_sq=$sigmaRui_sq --batch_size=$batch_size --num_workers=$num_workers --pretraining_epochs=$pe --theta_val=$theta --mnet_name=$mnet_name > output/salida_delfos_${BASHPID}.txt 2>&1
+            done
+        done
     done
 done
-comment
 
 #################################################################################################
 
+<<comment
 pretraining_epochs=0
 theta_val=0.1
 dataset_path=/work/Camelyon17/work/DECONVOLUCIONES/Original/
@@ -41,3 +44,4 @@ save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Camelyon17/
 #save_path=/work/work_fran/Deep_Var_BCD/results/deconvolutions/Alsubaie/
 
 python code/deconvolve.py --batch_size=$batch_size --num_workers=$num_workers --save_path=$save_path --pretraining_epochs=$pretraining_epochs --theta_val=$theta_val > output/salida_delfos_${BASHPID}.txt 2>&1
+comment
