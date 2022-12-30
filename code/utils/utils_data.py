@@ -6,9 +6,9 @@ def get_train_dataloaders(camelyon_data_path, patch_size=224, batch_size=16, num
     len_ds = len(dataset)
     len_val = int(val_prop * len_ds)
     len_train = len_ds - len_val
-    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [len_train, len_val])
+    train_dataset, val_dataset = torch.utils.data.random_split(dataset, [len_train, len_val], generator=torch.Generator().manual_seed(42))
     
-    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=num_workers)
+    train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)
     if len(val_dataset) < batch_size:
         batch_size = len(val_dataset)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=batch_size, shuffle=False, num_workers=num_workers)

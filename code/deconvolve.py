@@ -25,7 +25,7 @@ for arg in vars(args):
     print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
 
 MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
-MODEL_NAME = f"{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
+MODEL_NAME = f"{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 WEIGHTS_PATH = args.weights_path + f"{MODEL_NAME}/"
 
 SAVE_PATH = args.save_path + f"BCDNET_{MODEL_NAME}/"
