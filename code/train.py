@@ -4,7 +4,7 @@ import torch
 from utils.callbacks import EarlyStopping, ModelCheckpoint, History
 from options import set_train_opts
 
-from utils.utils_data import get_train_dataloaders, get_wssb_dataloader
+from utils.datasets import CamelyonDataset, WSSBDatasetTest
 from models.DVBCDModel import DVBCDModel
 
 print(torch.__version__)
@@ -29,8 +29,8 @@ MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 SAVE_MODEL_NAME = f"{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{SAVE_MODEL_NAME}/")
 HISTORY_PATH = os.path.join(args.save_history_dir, f"{SAVE_MODEL_NAME}.csv")
-VAL_TYPE = args.val_type
 ES_METRIC="val_loss"
+TRAIN_CENTERS =  [0,2,4]
 
 if not os.path.exists(args.save_history_dir):
     os.makedirs(args.save_history_dir)
@@ -38,22 +38,34 @@ if not os.path.exists(args.save_history_dir):
 if not os.path.exists(SAVE_MODEL_PATH):
     os.makedirs(SAVE_MODEL_PATH)
 
-train_dataloader, val_dataloader = get_train_dataloaders(args.camelyon_data_path, args.patch_size, args.batch_size, args.num_workers, val_prop=args.val_prop, n_samples=args.n_samples)
-if VAL_TYPE == "GT":
+cam_dataset = CamelyonDataset(args.camelyon_data_path, TRAIN_CENTERS, patch_size=args.patch_size, n_samples=args.n_samples)
+if args.val_type == "GT":
     print("Using WSSB dataset for validation")
     ES_METRIC = "val_mse_gt"
-    val_dataloader = get_wssb_dataloader(args.wssb_data_path, args.num_workers)
+    train_dataset = cam_dataset
+    val_dataset = WSSBDatasetTest(args.wssb_data_path, organ_list=['Lung', 'Breast', 'Colon'])
+    val_batch_size = 1
+else:
+    print("Using Camelyon dataset for validation")
+    ES_METRIC = "val_mse"
+    len_ds = len(cam_dataset)
+    len_val = int(args.val_prop * len_ds)
+    len_train = len_ds - len_val
+    train_dataset, val_dataset = torch.utils.data.random_split(cam_dataset, [len_train, len_val], generator=torch.Generator().manual_seed(42))
+    val_batch_size = args.batch_size
 
+train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers)
+val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=val_batch_size, shuffle=False, num_workers=args.num_workers)
+    
 sigmaRui_sq = torch.tensor([args.sigmaRui_sq, args.sigmaRui_sq])
 model = DVBCDModel(
                 cnet_name=args.cnet_name, mnet_name=args.mnet_name, 
-                sigmaRui_sq=sigmaRui_sq, theta_val=args.theta_val, lr_cnet=args.lr_cnet, lr_mnet=args.lr_mnet,
-                lr_decay=args.lr_decay, clip_grad_cnet=args.clip_grad_cnet, clip_grad_mnet=args.clip_grad_mnet,
-                device=DEVICE
+                sigmaRui_sq=sigmaRui_sq, theta_val=args.theta_val, 
+                lr=args.lr, lr_decay=args.lr_decay, clip_grad=args.clip_grad
                 )
 
-cnet_n_params = sum(p.numel() for p in model.cnet.parameters() if p.requires_grad)
-mnet_n_params = sum(p.numel() for p in model.mnet.parameters() if p.requires_grad)
+cnet_n_params = sum(p.numel() for p in model.module.cnet.parameters() if p.requires_grad)
+mnet_n_params = sum(p.numel() for p in model.module.mnet.parameters() if p.requires_grad)
 print(f"Number of trainable parameters in Cnet: {cnet_n_params}")
 print(f"Number of trainable parameters in Mnet: {mnet_n_params}")
 
@@ -62,8 +74,14 @@ callbacks = [
     ModelCheckpoint(model, path=SAVE_MODEL_PATH, save_freq=args.save_freq), 
     History(path = HISTORY_PATH)]
 model.set_callbacks(callbacks)
+
+if torch.cuda.device_count() > 1:
+    print("Using", torch.cuda.device_count(), "GPUs!")
+    model.DP()
+model.to(DEVICE)
+
 if args.pretraining_epochs > 0:
-    model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True, val_type=VAL_TYPE)
-    model.init_optimizers()
-model.fit(args.epochs, train_dataloader, val_dataloader, pretraining=False, val_type=VAL_TYPE)
+    model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True)
+    model.init_optimizer()
+model.fit(args.epochs, train_dataloader, val_dataloader, pretraining=False)
 

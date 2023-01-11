@@ -82,18 +82,15 @@ def set_train_opts():
     parser.add_argument('--resume_path', default='', type=str, metavar='PATH', help="Path to the latest checkpoint (default: None)")
 
     # learning rate
-    parser.add_argument('--lr_cnet', type=float, default=1e-4, help="Initial learning rate of CNet (default: 1e-6)")
-    parser.add_argument('--lr_mnet', type=float, default=1e-4, help="Initial learning rate of MNet (default: 1e-4)")
+    parser.add_argument('--lr', type=float, default=1e-4, help="Initial learning rate(default: 1e-4)")
     parser.add_argument('--lr_decay', type=float, default=0.5, help="Decaying rate for the learning rate (default: 0.5)")
-    parser.add_argument('--patience', type=int, default=10, help="Patience for the learning rate scheduler (default: 10)")
+    parser.add_argument('--patience', type=int, default=10, help="Patience for early stopping (default: 10)")
 
     # How to clip the gradients norm during the training
-    parser.add_argument('--clip_grad_cnet', type=float, default=1e4, help="Value to clip the gradients of CNet, (default: 1e4)")
-    parser.add_argument('--clip_grad_mnet', type=float, default=1e5, help="Value to clip the gradients of MNet, (default: 1e5)")
-   
+    parser.add_argument('--clip_grad', type=float, default=1e5, help="Value to clip the gradients of CNet, (default: 1e5)")
+
     # hyper-parameters
     parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    #parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
     parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
 
 
@@ -116,7 +113,7 @@ def set_test_opts():
 
     # model settings
     parser.add_argument('--cnet_name', type=str, default='unet6', help='Cnet model name (default: unet6)')
-    parser.add_argument('--mnet_name', type=str, default='resnet18in', help='Mnet model name (default: resnet18in)')
+    parser.add_argument('--mnet_name', type=str, default='resnet18ft', help='Mnet model name (default: resnet18in)')
 
     # trainning settings
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
@@ -155,7 +152,7 @@ def set_deconvolve_opts():
     
     # model settings
     parser.add_argument('--cnet_name', type=str, default='unet6', help='Cnet model name (default: unet6)')
-    parser.add_argument('--mnet_name', type=str, default='resnet18in', help='Mnet model name (default: resnet18in)')
+    parser.add_argument('--mnet_name', type=str, default='resnet18ft', help='Mnet model name (default: resnet18in)')
     
     # trainning settings
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")

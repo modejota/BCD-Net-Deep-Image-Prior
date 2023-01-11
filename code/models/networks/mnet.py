@@ -37,16 +37,16 @@ def get_model(net_name, fc_hidden_dim=50):
     return model
 
 class MNet(nn.Module):
-    def __init__(self, net_name="resnet18in", kernel_size=3, fc_hidden_dim=50):
+    def __init__(self, net_name="resnet18in", stain_dim=3, fc_hidden_dim=50):
         super().__init__()
-        self.kernel_size = kernel_size
+        self.stain_dim = stain_dim
         self.model = get_model(net_name, fc_hidden_dim)
 
-        #self.model.conv1 = nn.Conv2d(3, 64, kernel_size=(3, 3), stride=(2, 2), padding=(3, 3), bias=False)
+        #self.model.conv1 = nn.Conv2d(3, 64, stain_dim=(3, 3), stride=(2, 2), padding=(3, 3), bias=False)
 
         self.M_mean = nn.Sequential(
             nn.ReLU(inplace=False),
-            nn.Linear(fc_hidden_dim, 2*kernel_size),
+            nn.Linear(fc_hidden_dim, 2*stain_dim),
             #nn.Sigmoid()
         )
 
@@ -62,16 +62,16 @@ class MNet(nn.Module):
         # x = x[:, 0, :, :].unsqueeze(1)  # B x 1 X H x W
         x = F.instance_norm(x)
         x = self.model(x)
-        mean = self.M_mean(x) # shape (batch_size, 2*kernel_size)
-        mean = mean.view(mean.shape[0], 3, 2) # shape (batch_size, kernel_size, 2)
+        mean = self.M_mean(x) # shape (batch_size, 2*stain_dim)
+        mean = mean.view(mean.shape[0], 3, 2) # shape (batch_size, stain_dim, 2)
         l1 = torch.norm(mean, dim=1, keepdim=True) # shape (batch_size, )
-        mean = torch.div(mean , l1 + 1e-10)
+        mean = torch.div(mean , l1 + 1e-10) # shape (batch_size, stain_dim, 2)
 
         var = torch.exp(self.M_log_var(x)) + 1e-10 # shape (batch_size, 2)
-        var = var.view(var.shape[0], 1, 2)
+        var = var.view(var.shape[0], 1, 2) # shape (batch_size, 1, 2)
 
         return mean, var
 
-def get_mnet(net_name, kernel_size=3, fc_hidden_dim=50):
-    return MNet(net_name, kernel_size, fc_hidden_dim)
+def get_mnet(net_name, stain_dim=3, fc_hidden_dim=50):
+    return MNet(net_name, stain_dim, fc_hidden_dim)
 

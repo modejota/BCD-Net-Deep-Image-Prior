@@ -4,6 +4,7 @@ import glob
 import cv2
 import random
 import os
+from tqdm import tqdm
 
 import numpy as np
 import torchvision.transforms.functional as TVTF
@@ -21,9 +22,7 @@ class CamelyonDataset(torch.utils.data.Dataset):
         self.centers = centers
         self.patch_size = patch_size
         self.n_samples = n_samples
-        print("Scanning files...")
         self.image_files = self.scan_files()
-        print("Loading data...")
         self.img_list = self.load_data()
         self.len = len(self.image_files)
         self.mR = torch.tensor([
@@ -46,6 +45,7 @@ class CamelyonDataset(torch.utils.data.Dataset):
         
         patches_ids = []
         if self.n_samples is not None:
+            print(f"Sampling {self.n_samples} patches")
             if self.n_samples < num_available_patches:
                 random.seed(42)
                 n_samples_per_center = self.n_samples // len(self.centers)
@@ -66,7 +66,9 @@ class CamelyonDataset(torch.utils.data.Dataset):
     def load_data(self):
         img_list = []
         #od_img_list = []
-        for file in self.image_files:
+        pbar = tqdm(self.image_files, total=len(self.image_files))
+        pbar.set_description("Loading data")
+        for file in pbar:
             img = cv2.imread(file)
             img = img[:,:,::-1] # Changes BGR to RGB
 
@@ -77,6 +79,7 @@ class CamelyonDataset(torch.utils.data.Dataset):
             #od_img = rgb2od_np(img) #Range [0, 5.54]
             #od_img = normalize_to1(od_img, -np.log(1/256), 0) # Range [0, 1]           
             #od_img_list.append(od_img)
+        pbar.close()
 
         return img_list
     
@@ -90,14 +93,13 @@ class CamelyonDataset(torch.utils.data.Dataset):
             if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
                 img = npimg_random_crop_patch(img, self.patch_size)
 
-        od_img = rgb2od_np(img) #Range [0, 5.54]
-        od_img = normalize_to1(od_img, -np.log(1/256), 0)
-        
+        #od_img = rgb2od_np(img) #Range [0, 5.54]
+        #od_img = normalize_to1(od_img, -np.log(1/256), 0)
         #od_img = TVTF.to_tensor(od_img.copy()).type(torch.float32)
-        od_img = torch.from_numpy(od_img.copy().transpose(2,0,1).astype(np.float32))
-        #img = TVTF.to_tensor(img.copy()).type(torch.float32)
+        #od_img = torch.from_numpy(od_img.copy().transpose(2,0,1).astype(np.float32))
+        
         img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
-        return img, od_img, self.mR
+        return img, self.mR
 
 class WSSBDatasetTest(torch.utils.data.Dataset):
 
@@ -111,7 +113,7 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
                     [0.2668, 0.2831]
                     ])
         self.image_files, self.sv_files = self.scan_files()
-        self.img_list, self.od_img_list, self.C_gt_list, self.M_gt_list = self.load_data()
+        self.img_list, self.M_gt_list = self.load_data()
         self.len = len(self.image_files)        
 
     def scan_files(self):
@@ -130,8 +132,10 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
     def load_data(self):
         
         img_list = []
-        od_img_list = []
-        for file in self.image_files:
+        #od_img_list = []
+        pbar = tqdm(self.image_files, total=len(self.image_files))
+        pbar.set_description("Loading data")
+        for file in pbar:
             img = cv2.imread(file)
             img = img[:,:,::-1].astype("float") # Changes BGR to RGB
 
@@ -139,36 +143,34 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
                 img = npimg_random_crop_patch(img, self.patch_size)
             img_list.append(img)
 
-            od_img = rgb2od_np(img) #Range [0, 5.54]
-            od_img = normalize_to1(od_img, -np.log(1/256), 0) # Range [0, 1]           
-            od_img_list.append(od_img)
+            #od_img = rgb2od_np(img) #Range [0, 5.54]
+            #od_img = normalize_to1(od_img, -np.log(1/256), 0) # Range [0, 1]           
+            #od_img_list.append(od_img)
+        pbar.close()
 
-        C_gt_list = []
+        #C_gt_list = []
         M_gt_list = []
-        #C_gt_rgb_list = []
         for i in range(len(self.sv_files)):
             M_gt = loadmat(self.sv_files[i])['Stains']
-            img_od = rgb2od_np(img_list[i])
-            C_gt = direct_deconvolution_np(img_od, M_gt)
-            #C_gt_rgb = C_to_RGB_np(C_gt, M_gt)
-            C_gt_list.append(C_gt)
+            #img_od = rgb2od_np(img_list[i])
+            #C_gt = direct_deconvolution_np(img_od, M_gt)
+            #C_gt_list.append(C_gt)
             M_gt_list.append(M_gt)
-            #C_gt_rgb_list.append(C_gt_rgb)
-        return img_list, od_img_list, C_gt_list, M_gt_list
+        return img_list, M_gt_list
     
     def __len__(self):
         return self.len
 
     def __getitem__(self, idx):
         img = self.img_list[idx]
-        od_img = self.od_img_list[idx]
+        #od_img = self.od_img_list[idx]
         mR = self.mR
-        img = TVTF.to_tensor(img.copy()).type(torch.float32)
-        od_img = TVTF.to_tensor(od_img.copy()).type(torch.float32)
-        C_gt = torch.from_numpy(self.C_gt_list[idx]).type(torch.float32)
+        img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
+        #od_img = TVTF.to_tensor(od_img.copy()).type(torch.float32)
+        #C_gt = torch.from_numpy(self.C_gt_list[idx]).type(torch.float32)
         M_gt = torch.from_numpy(self.M_gt_list[idx]).type(torch.float32)
         #C_gt_rgb = torch.from_numpy(self.C_gt_rgb_list[idx]).type(torch.float32)
-        return img, od_img, mR, C_gt, M_gt
+        return img, mR, M_gt
 
 class FilesDataset(torch.utils.data.Dataset):
     
@@ -218,11 +220,11 @@ class FilesDataset(torch.utils.data.Dataset):
             if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
                 img = npimg_random_crop_patch(img, self.patch_size)
 
-        od_img = rgb2od_np(img) #Range [0, 5.54]
-        od_img = normalize_to1(od_img, -np.log(1/256), 0)
+        #od_img = rgb2od_np(img) #Range [0, 5.54]
+        #od_img = normalize_to1(od_img, -np.log(1/256), 0)
         
-        od_img = torch.from_numpy(od_img.copy().transpose(2,0,1).astype(np.float32))
+        #od_img = torch.from_numpy(od_img.copy().transpose(2,0,1).astype(np.float32))
         img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
-        return img, od_img, file
+        return img, file
 
 

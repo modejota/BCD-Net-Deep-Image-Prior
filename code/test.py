@@ -4,7 +4,7 @@ import pandas as pd
 
 from options import set_test_opts
 
-from utils.utils_data import get_camelyon_test_dataloader, get_wssb_dataloader_dict
+from utils.datasets import CamelyonDataset, WSSBDatasetTest
 from models.DVBCDModel import DVBCDModel
 
 print(torch.__version__)
@@ -33,13 +33,23 @@ RESULTS_PATH_WSSB = os.path.join(MAIN_PATH, args.results_dir, f"results_wssb.csv
 MODEL_DIR_NAME = f"{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 LOAD_MODEL_PATH = os.path.join(args.load_model_dir, f"{MODEL_DIR_NAME}/")
 
-model = DVBCDModel(cnet_name=args.cnet_name, mnet_name=args.mnet_name, theta_val = args.theta_val, device=DEVICE)
+TEST_CENTERS = [1,3]
 
+model = DVBCDModel(cnet_name=args.cnet_name, mnet_name=args.mnet_name, theta_val = args.theta_val)
 model.load(LOAD_MODEL_PATH + "best.pt")
 
-n_samples_camelyon = int(0.2*args.n_samples)
-test_dataloader_camelyon = get_camelyon_test_dataloader(args.camelyon_data_path, args.patch_size, args.num_workers, n_samples_camelyon)
-test_dataloader_wssb_dict = get_wssb_dataloader_dict(args.wssb_data_path, args.num_workers)
+if torch.cuda.device_count() > 1:
+    print("Using", torch.cuda.device_count(), "GPUs!")
+    model.DP()
+model.to(DEVICE)
+
+cam_dataset = CamelyonDataset(args.camelyon_data_path, TEST_CENTERS, patch_size=args.patch_size, n_samples=0.2*args.n_samples)
+cam_dataloader = torch.utils.data.DataLoader(cam_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers)
+
+wssb_dataloader_dic = {}
+for organ in ['Lung', 'Breast', 'Colon']:
+    wssb_dataset = WSSBDatasetTest(args.wssb_data_path, organ_list=[organ])
+    wssb_dataloader_dic[organ] = torch.utils.data.DataLoader(args.wssb_data_path, batch_size=1, shuffle=False, num_workers=args.num_workers)
 
 results_dic_camelyon = {}
 results_dic_wssb = {}
@@ -47,12 +57,12 @@ for k in SAVE_KEYS:
     results_dic_camelyon[k] = getattr(args, k)
     results_dic_wssb[k] = getattr(args, k)
 
-metrics_camelyon = model.evaluate(test_dataloader_camelyon)
+metrics_camelyon = model.evaluate(cam_dataloader)
 for k in metrics_camelyon.keys():
     results_dic_camelyon["camelyon_" + k] = metrics_camelyon[k]
 
-for organ in test_dataloader_wssb_dict.keys():
-    metrics_wssb = model.evaluate_GT(test_dataloader_wssb_dict[organ])
+for organ in wssb_dataloader_dic.keys():
+    metrics_wssb = model.evaluate(wssb_dataloader_dic[organ])
     for k in metrics_wssb.keys():
         results_dic_wssb[f"wssb_{organ}_" + k] = metrics_wssb[k]
 
