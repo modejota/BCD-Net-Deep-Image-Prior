@@ -1,7 +1,7 @@
 import torch
 import numpy as np
 
-from torchmetrics.functional import peak_signal_noise_ratio, structural_similarity_index_measure
+from torchmetrics.functional import structural_similarity_index_measure
 
 from tqdm import tqdm
 
@@ -10,6 +10,33 @@ from .networks.cnet import get_cnet
 from .networks.mnet import get_mnet
 
 from utils.callbacks import CallbacksList
+
+def peak_signal_noise_ratio(A, B, max=255.0):
+    """
+    input: 
+        A: tensor of shape (N, C, H, W)
+        B: tensor of shape (N, C, H, W)
+    return:
+        psnr: tensor of shape (N, )
+    """
+    if max is None:
+        max = torch.max(A)
+    mse = torch.mean((A - B)**2, dim=(1,2,3))
+    psnr = 10 * torch.log10(max**2 / mse)
+    return psnr
+
+def normalize(A):
+    """
+    input: 
+        A: tensor of shape (N, C, H, W)
+    return:
+        A: tensor of shape (N, C, H, W)
+    """
+    bs = A.shape[0]
+    min = A.view(bs, -1).min(dim=1)[0].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+    max = A.view(bs, -1).max(dim=1)[0].unsqueeze(1).unsqueeze(2).unsqueeze(3)
+    A = (A - min) / (max - min)
+    return A
 
 class DVBCDModule(torch.nn.Module):
     def __init__(self, cnet_name, mnet_name) -> None:
@@ -30,7 +57,7 @@ class DVBCDModule(torch.nn.Module):
 
 class DVBCDModel():
     def __init__(
-                self, cnet_name, mnet_name, 
+                self, cnet_name='unet6', mnet_name='mobilenetv3s', 
                 sigmaRui_sq=torch.tensor([0.05, 0.05]), theta_val=0.5, 
                 lr=1e-4, lr_decay=0.1, clip_grad=np.Inf
                 ):
@@ -96,13 +123,15 @@ class DVBCDModel():
                 f"{prefix}_loss": loss.item()/batch_size, f"{prefix}_loss_mse": loss_mse.item()/batch_size, f"{prefix}_loss_kl": loss_kl.item()/batch_size
             }
 
-        Y_RGB_clamp = torch.clamp(Y_RGB, 0.0, 255.0)
+        Y_RGB_norm = torch.clamp(Y_RGB, 0.0, 255.0)
+        #Y_RGB_norm = 255.0*normalize(Y_RGB)
         Y_rec_rgb = self._od2rgb(Y_rec_od)
-        Y_rec_rgb_clamp = torch.clamp(Y_rec_rgb, 0.0, 255.0)
+        Y_rec_rgb_norm = torch.clamp(Y_rec_rgb, 0.0, 255.0)
+        #Y_rec_rgb_norm = 255.0*normalize(Y_rec_rgb)
         
         mse_rec = torch.nn.functional.mse_loss(Y_OD, Y_rec_od, reduction='none').mean(dim=(1, 2, 3)).mean()
-        psnr_rec = peak_signal_noise_ratio(Y_rec_rgb_clamp.view(batch_size, -1), Y_RGB_clamp.view(batch_size, -1), dim=1, data_range=255.0).mean()
-        ssim_rec = structural_similarity_index_measure(Y_rec_rgb_clamp, Y_RGB_clamp)
+        psnr_rec = peak_signal_noise_ratio(Y_rec_rgb_norm, Y_RGB_norm).mean()
+        ssim_rec = structural_similarity_index_measure(Y_rec_rgb_norm, Y_RGB_norm)
         metrics_dic = {
             **metrics_dic,
             f"{prefix}_mse_rec": mse_rec.item(), f"{prefix}_psnr_rec": psnr_rec.item(), f"{prefix}_ssim_rec": ssim_rec.item()
@@ -115,35 +144,34 @@ class DVBCDModel():
             HE_pred_OD = torch.einsum('bcs, bshw -> bschw', out_Mnet_mean, out_Cnet)
             H_pred_OD = HE_pred_OD[:, 0, :, :]
             H_pred_RGB = self._od2rgb(H_pred_OD)
-            #H_pred_RGB = od2rgb_torch(undo_normalization(H_pred_OD))
-            #H_RGB = od2rgb_torch(H_OD)
-            H_pred_RGB_clamp = torch.clamp(H_pred_RGB, 0.0, 255.0)
+            H_pred_RGB_norm = torch.clamp(H_pred_RGB, 0.0, 255.0)
+            #H_pred_RGB_norm = 255.0*normalize(H_pred_RGB)
+
             E_pred_OD = HE_pred_OD[:, 1, :, :]
             E_pred_RGB = self._od2rgb(E_pred_OD)
-            #E_pred_RGB = od2rgb_torch(undo_normalization(E_pred_OD))
-            #E_RGB = od2rgb_torch(E_OD)
-            E_pred_RGB_clamp = torch.clamp(E_pred_RGB, 0.0, 255.0)
+            E_pred_RGB_norm = torch.clamp(E_pred_RGB, 0.0, 255.0)
+            #E_pred_RGB_norm = 255.0*normalize(E_pred_RGB)
 
             C_GT_OD = torch.einsum('bcs, bshw -> bschw', M_GT, C_GT)
             H_GT_OD =  C_GT_OD[:, 0, :, :]
             H_GT_RGB = self._od2rgb(H_GT_OD)
-            #H_GT_RGB = od2rgb_torch(H_GT_OD)
-            H_GT_RGB_clamp = torch.clamp(H_GT_RGB, 0.0, 255.0)
+            H_GT_RGB_norm = torch.clamp(H_GT_RGB, 0.0, 255.0)
+            #H_GT_RGB_norm = 255.0*normalize(H_GT_RGB)
             E_GT_OD =  C_GT_OD[:, 1, :, :]
             E_GT_RGB = self._od2rgb(E_GT_OD)
-            #E_GT_RGB = od2rgb_torch(E_GT_OD)
-            E_GT_RGB_clamp = torch.clamp(E_GT_RGB, 0.0, 255.0)
+            E_GT_RGB_norm = torch.clamp(E_GT_RGB, 0.0, 255.0)
+            #E_GT_RGB_norm = 255.0*normalize(E_GT_RGB)
 
             mse_gt_h = torch.nn.functional.mse_loss(H_pred_OD, H_GT_OD, reduction='none').mean(dim=(1, 2, 3)).mean()
             mse_gt_e = torch.nn.functional.mse_loss(E_pred_OD, E_GT_OD, reduction='none').mean(dim=(1, 2, 3)).mean()
             mse_gt = (mse_gt_h + mse_gt_e) / 2.0
 
-            psnr_gt_h = peak_signal_noise_ratio(H_pred_RGB_clamp.view(batch_size, -1), H_GT_RGB_clamp.view(batch_size, -1), dim=1, data_range=255.0).mean()
-            psnr_gt_e = peak_signal_noise_ratio(E_pred_RGB_clamp.view(batch_size, -1), E_GT_RGB_clamp.view(batch_size, -1), dim=1, data_range=255.0).mean()
+            psnr_gt_h = peak_signal_noise_ratio(H_pred_RGB_norm, H_GT_RGB_norm).mean()
+            psnr_gt_e = peak_signal_noise_ratio(E_pred_RGB_norm, E_GT_RGB_norm).mean()
             psnr_gt = (psnr_gt_h + psnr_gt_e) / 2.0
 
-            ssim_gt_h = structural_similarity_index_measure(H_pred_RGB_clamp, H_GT_RGB_clamp)
-            ssim_gt_e = structural_similarity_index_measure(E_pred_RGB_clamp, E_GT_RGB_clamp)
+            ssim_gt_h = structural_similarity_index_measure(H_pred_RGB_norm, H_GT_RGB_norm)
+            ssim_gt_e = structural_similarity_index_measure(E_pred_RGB_norm, E_GT_RGB_norm)
             ssim_gt = (ssim_gt_h + ssim_gt_e) / 2.0
 
             metrics_dic = {
@@ -206,11 +234,27 @@ class DVBCDModel():
     def test_epoch(self, epoch, dataloader):
         return self.run_epoch(epoch, dataloader, "test")
     
-    def run_epoch(self, epoch, dataloader, mode="train", val_type='normal'):
-        step_method = self.train_step if mode == "train" else self.val_step
+    def run_epoch(self, epoch, dataloader, mode="train"):
+        step_method = None
+        if mode == "train":
+            step_method = self.train_step 
+        elif mode == "val":
+            step_method = self.val_step
+        else:
+            step_method = self.test_step
 
-        on_step_begin = self.callbacks_list.on_train_step_begin if mode == "train" else self.callbacks_list.on_val_step_begin
-        on_step_end = self.callbacks_list.on_train_step_end if mode == "train" else self.callbacks_list.on_val_step_end
+        on_step_begin = None
+        on_step_end = None
+        if mode == "train":
+            on_step_begin = self.callbacks_list.on_train_step_begin
+            on_step_end = self.callbacks_list.on_train_step_end
+        elif mode == "val":
+            on_step_begin = self.callbacks_list.on_val_step_begin
+            on_step_end = self.callbacks_list.on_val_step_end
+        else:
+            on_step_begin = self.callbacks_list.on_test_step_begin
+            on_step_end = self.callbacks_list.on_test_step_end
+
 
         pbar = tqdm(enumerate(dataloader), total=len(dataloader))
         pbar.set_description(f"Epoch {epoch} - {mode}")
@@ -290,8 +334,12 @@ class DVBCDModel():
     def evaluate(self, test_dataloader, prefix='test'):
         self.module.eval()
         with torch.no_grad():
-            metrics_dic = self.run_epoch(0, test_dataloader, mode=prefix)
-        return metrics_dic
+            metrics_dic = self.run_epoch(0, test_dataloader, mode='test')
+        new_metrics_dic = {}
+        for k, v in metrics_dic.items():
+            new_k = k.replace('test_', f'{prefix}_')
+            new_metrics_dic[new_k] = v
+        return new_metrics_dic
     
     def save(self, path):
         if self.dp:

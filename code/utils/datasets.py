@@ -7,12 +7,10 @@ import os
 from tqdm import tqdm
 
 import numpy as np
-import torchvision.transforms.functional as TVTF
 
 from scipy.io import loadmat
 
 from utils.utils_imgs import npimg_random_crop_patch
-from utils.utils_BCD import rgb2od_np, normalize_to1, direct_deconvolution_np
 
 class CamelyonDataset(torch.utils.data.Dataset):
 

@@ -19,6 +19,14 @@ class Callback():
     def on_val_step_end(self, step, logs=None):
         """Called at the end of a training step."""
         pass
+    
+    def on_test_step_begin(self, step, logs=None):
+        """Called at the beginning of a training step."""
+        pass
+    
+    def on_test_step_end(self, step, logs=None):
+        """Called at the end of a training step."""
+        pass
 
     def on_epoch_begin(self, epoch, logs=None):
         """Called at the beginning of a training epoch."""
@@ -69,6 +77,14 @@ class CallbacksList(Callback):
     def on_val_step_end(self, step, logs=None):
         for callback in self.callbacks:
             callback.on_val_step_end(step, logs)
+    
+    def on_test_step_begin(self, step, logs=None):
+        for callback in self.callbacks:
+            callback.on_test_step_begin(step, logs)
+    
+    def on_test_step_end(self, step, logs=None):
+        for callback in self.callbacks:
+            callback.on_test_step_end(step, logs)
     
     def on_epoch_begin(self, epoch, logs=None):
         for callback in self.callbacks:
