@@ -38,17 +38,15 @@ model.eval()
 
 print("Deconvolving...")
 filenames_list = []
-out_Mnet_mean_list = []
-out_Cnet_list = []
+out_M_list = []
+out_C_list = []
 for idx, batch in enumerate(tqdm(dataloader)):
     Y, Y_OD, filenames = batch
     Y_OD = Y_OD.to(DEVICE)
-    out_Mnet_mean, _, out_Cnet, _ = model.forward(Y_OD)
-    out_Mnet_mean = out_Mnet_mean.cpu().detach().numpy()
-    out_Cnet = out_Cnet.cpu().detach().numpy()
+    out_M, out_C = model.deconvolve(Y_OD)
 
-    out_Mnet_mean_list = out_Mnet_mean_list + list(out_Mnet_mean)
-    out_Cnet_list = out_Cnet_list + list(out_Cnet)
+    out_M_list = out_M_list + list(out_M)
+    out_C_list = out_C_list + list(out_C)
     filenames_list = filenames_list + list(filenames)
 
 print("Saving files...")
@@ -58,13 +56,13 @@ for idx in tqdm(range(len(filenames_list))):
     new_file = new_file.split('.')[0] + ".Results.mat"
     new_file = SAVE_PATH + new_file
 
-    out_Mnet_mean = out_Mnet_mean_list[idx]
-    out_Cnet = out_Cnet_list[idx]
+    out_M = out_M_list[idx]
+    out_C = out_C_list[idx]
 
     if not os.path.exists(os.path.dirname(new_file)):
         os.makedirs(os.path.dirname(new_file))
 
     h5f = h5py.File(new_file, 'w')
-    h5f.create_dataset('M', data=out_Mnet_mean)
-    h5f.create_dataset('stains', data=out_Cnet)
+    h5f.create_dataset('M', data=out_M)
+    h5f.create_dataset('stains', data=out_C)
     h5f.close()

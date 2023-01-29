@@ -26,7 +26,7 @@ for arg in vars(args):
 
 MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 
-SAVE_MODEL_NAME = f"{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
+SAVE_MODEL_NAME = f"{args.cnet_name}_{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 SAVE_MODEL_PATH = os.path.join(args.save_model_dir, f"{SAVE_MODEL_NAME}/")
 HISTORY_PATH = os.path.join(args.save_history_dir, f"{SAVE_MODEL_NAME}.csv")
 ES_METRIC="val_loss"
@@ -47,7 +47,7 @@ if args.val_type == "GT":
     val_batch_size = 1
 else:
     print("Using Camelyon dataset for validation")
-    ES_METRIC = "val_mse"
+    ES_METRIC = "val_mse_rec"
     len_ds = len(cam_dataset)
     len_val = int(args.val_prop * len_ds)
     len_train = len_ds - len_val

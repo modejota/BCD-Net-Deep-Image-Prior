@@ -45,19 +45,35 @@ class DVBCDModule(torch.nn.Module):
         self.mnet_name = mnet_name
         self.cnet = get_cnet(cnet_name)
         self.mnet = get_mnet(mnet_name)
+
+        self.sft = self.cnet_name[-3:] == 'sft'
     
     def forward(self, y):
-        out_Mnet_mean, out_Mnet_var = self.mnet(y) # shape: (batch_size, 3, 2), (batch_size, 1, 2)
-        out_Cnet = self.cnet(y) # shape: (batch_size, 2, H, W)
-        batch_size, c, H, W = out_Cnet.shape 
-        Cflat = out_Cnet.view(-1, 2, H * W) #shape: (batch, 2, H * W)
-        Y_rec = torch.matmul(out_Mnet_mean, Cflat) #shape: (batch, 3, H * W)
-        Y_rec = Y_rec.view(batch_size, 3, H, W) #shape: (batch, 3, H, W)
-        return out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec
+        batch_size, _, H, W = y.shape 
+        out_M_mean, out_M_var = self.mnet(y) # shape: (batch_size, 3, 2), (batch_size, 1, 2)
+        out_M_sample = out_M_mean + torch.rand_like(out_M_mean)*torch.sqrt(out_M_var)
+
+        if self.sft:
+            out_M_mean_fl = out_M_mean.view(batch_size, -1)
+            out_M_sample_fl = out_M_sample.view(batch_size, -1)
+            out_C_mean = self.cnet(y, out_M_mean_fl) # shape: (batch_size, 2, H, W)
+            out_C_sample = self.cnet(y, out_M_sample_fl) # shape: (batch_size, 2, H, W)
+        else:
+            out_C_mean = self.cnet(y) # shape: (batch_size, 2, H, W)
+            out_C_sample = self.cnet(y) # shape: (batch_size, 2, H, W)
+        out_C_mean_fl = out_C_mean.view(-1, 2, H * W) #shape: (batch, 2, H * W)
+        out_C_sample_fl = out_C_sample.view(-1, 2, H * W) #shape: (batch, 2, H * W)
+
+        Y_rec_od_mean = torch.matmul(out_M_mean, out_C_mean_fl) #shape: (batch, 3, H * W)
+        Y_rec_od_sample = torch.matmul(out_M_sample, out_C_sample_fl) #shape: (batch, 3, H * W)
+        Y_rec_od_mean = Y_rec_od_mean.view(batch_size, 3, H, W) #shape: (batch, 3, H, W)
+        Y_rec_od_sample = Y_rec_od_sample.view(batch_size, 3, H, W) #shape: (batch, 3, H, W)
+
+        return out_M_mean, out_M_var, out_C_mean, Y_rec_od_mean, out_M_sample, out_C_sample, Y_rec_od_sample
 
 class DVBCDModel():
     def __init__(
-                self, cnet_name='unet6', mnet_name='mobilenetv3s', 
+                self, cnet_name='unet6', mnet_name='mobilenetv3s',
                 sigmaRui_sq=torch.tensor([0.05, 0.05]), theta_val=0.5, 
                 lr=1e-4, lr_decay=0.1, clip_grad=np.Inf
                 ):
@@ -88,9 +104,6 @@ class DVBCDModel():
     
     def set_callbacks(self, callbacks):
         self.callbacks_list.set_callbacks(callbacks)
-
-    def forward(self, y):
-        return self.module(y)
     
     def to(self, device):
         self.device = device
@@ -110,15 +123,17 @@ class DVBCDModel():
         Y_OD = self._rgb2od(Y_RGB).to(self.device)
         MR = out_dic['MR'].to(self.device)
         Y_rec_od = out_dic['Y_rec_od'].to(self.device)
-        out_Cnet = out_dic['out_Cnet'].to(self.device)
-        out_Mnet_mean = out_dic['out_Mnet_mean'].to(self.device)
-        out_Mnet_var = out_dic['out_Mnet_var'].to(self.device)
+        out_C_mean = out_dic['out_C_mean'].to(self.device)
+        out_M_mean = out_dic['out_M_mean'].to(self.device)
+        out_M_var = out_dic['out_M_var'].to(self.device)
 
         metrics_dic = {}
         batch_size = Y_OD.shape[0]
 
         if compute_loss:
-            loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
+            loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, Y_rec_od, self.sigmaRui_sq, self.theta_val)
+
+            #loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_C_mean, out_M_mean, out_M_var, self.sigmaRui_sq, self.theta_val)
             metrics_dic = {
                 f"{prefix}_loss": loss.item()/batch_size, f"{prefix}_loss_mse": loss_mse.item()/batch_size, f"{prefix}_loss_kl": loss_kl.item()/batch_size
             }
@@ -141,7 +156,7 @@ class DVBCDModel():
             M_GT = out_dic['M_GT'].to(self.device)
             C_GT = self._direct_deconvolution(Y_OD, M_GT).to(self.device)
 
-            HE_pred_OD = torch.einsum('bcs, bshw -> bschw', out_Mnet_mean, out_Cnet)
+            HE_pred_OD = torch.einsum('bcs, bshw -> bschw', out_M_mean, out_C_mean)
             H_pred_OD = HE_pred_OD[:, 0, :, :]
             H_pred_RGB = self._od2rgb(H_pred_OD)
             H_pred_RGB_norm = torch.clamp(H_pred_RGB, 0.0, 255.0)
@@ -286,9 +301,9 @@ class DVBCDModel():
 
         self.opt.zero_grad()
 
-        out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
+        out_M_mean, out_M_var, out_C_mean, Y_rec_od_mean, out_M_sample, out_C_sample, Y_rec_od_sample = self.module(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
         
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, Y_rec_od_sample, self.sigmaRui_sq, self.theta_val)
         loss.backward()
         
         torch.nn.utils.clip_grad_norm_(self.module.parameters(), self.clip_grad)
@@ -296,7 +311,7 @@ class DVBCDModel():
         self.opt.step()
 
         loss_dic = {'train_loss' : loss.item(), 'train_loss_mse' : loss_mse.item(), 'train_loss_kl' : loss_kl.item()}
-        out_dic = {'Y_RGB' : Y_RGB.detach().cpu(), 'MR' : MR.detach().cpu(), 'Y_rec_od' : Y_rec_od.detach().cpu(), 'out_Cnet' : out_Cnet.detach().cpu(), 'out_Mnet_mean' : out_Mnet_mean.detach().cpu(), 'out_Mnet_var' : out_Mnet_var.detach().cpu()}
+        out_dic = {'Y_RGB' : Y_RGB.detach().cpu(), 'MR' : MR.detach().cpu(), 'Y_rec_od' : Y_rec_od_mean.detach().cpu(), 'out_C_mean' : out_C_mean.detach().cpu(), 'out_M_mean' : out_M_mean.detach().cpu(), 'out_M_var' : out_M_var.detach().cpu()}
         metrics_dic = self.compute_metrics(out_dic, 'train')
         
         return {**loss_dic, **metrics_dic}
@@ -321,12 +336,12 @@ class DVBCDModel():
             Y_OD = self._rgb2od(Y_RGB).to(self.device)
             MR = MR.to(self.device)
 
-            out_Mnet_mean, out_Mnet_var, out_Cnet, Y_rec_od = self.forward(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
+            out_M_mean, out_M_var, out_C_mean, Y_rec_od_mean, out_M_sample, out_C_sample, Y_rec_od_sample = self.module(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
 
-            loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_Cnet, out_Mnet_mean, out_Mnet_var, self.sigmaRui_sq, self.theta_val)
+            loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, Y_rec_od_sample, self.sigmaRui_sq, self.theta_val)
 
             loss_dic = {f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item()}
-            out_dic = {**out_dic, 'Y_RGB' : Y_RGB.detach().cpu(), 'MR' : MR.detach().cpu(), 'Y_rec_od' : Y_rec_od.detach().cpu(), 'out_Cnet' : out_Cnet.detach().cpu(), 'out_Mnet_mean' : out_Mnet_mean.detach().cpu(), 'out_Mnet_var' : out_Mnet_var.detach().cpu()}
+            out_dic = {**out_dic, 'Y_RGB' : Y_RGB.detach().cpu(), 'MR' : MR.detach().cpu(), 'Y_rec_od' : Y_rec_od_mean.detach().cpu(), 'out_C_mean' : out_C_mean.detach().cpu(), 'out_M_mean' : out_M_mean.detach().cpu(), 'out_M_var' : out_M_var.detach().cpu()}
             
             metrics_dic = self.compute_metrics(out_dic, prefix)
             return {**loss_dic, **metrics_dic}
@@ -340,6 +355,10 @@ class DVBCDModel():
             new_k = k.replace('test_', f'{prefix}_')
             new_metrics_dic[new_k] = v
         return new_metrics_dic
+    
+    def deconvolve(self, Y_OD):
+        out_M_mean, _, out_C_mean, _, _, _, _ = self.module(Y_OD)
+        return out_M_mean, out_C_mean
     
     def save(self, path):
         if self.dp:

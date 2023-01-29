@@ -1,4 +1,3 @@
-from cachetools import MRUCache
 import torch
 import glob
 import cv2

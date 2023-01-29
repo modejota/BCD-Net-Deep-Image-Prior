@@ -5,7 +5,41 @@ import torch.nn.functional as F
 CONST_KL = 1.0
 CONST_MSE = 1.0
 
-def loss_BCD(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, theta_val=0.5):
+
+def loss_BCD(Y, MR, out_Mnet_mean, out_Mnet_var, Y_rec, sigmaRui_sq, theta_val=0.5):
+    """
+    Args:
+        Y: OD image, shape: batch_size x 3 x H x W
+        MR: Ruifrok matrix, shape: batch_size x 3 x 2
+        out_Mnet_mean: output of Mnet, mean for the color vector matrix, shape: batch_size x 3 x 2
+        out_Mnet_var: output of Mnet, variance for the color vector matrix, shape: batch_size x 1 x 2
+        Y_rec: reconstructed OD image, shape: batch_size x 3 x H x W
+        sigmaRui_sq: variance of the Ruifrok prior, shape: batch_size x 1 x 2
+        theta_val: weight of the KL divergence term, scalar        
+    """
+
+    out_Mnet_var_div_sigmaRui_sq = torch.div(out_Mnet_var, sigmaRui_sq) # shape: (batch, 1, 2)
+
+    # el primero es el h, y el segundo es el e
+    mse_mean_vecs = F.mse_loss(out_Mnet_mean, MR, reduction='none') # shape: (batch, 3, 2)
+    mse_mean_vecs = torch.sum(mse_mean_vecs, 1) # shape: (batch, 2)
+
+    term_kl1 = 0.5 * torch.sum(mse_mean_vecs / sigmaRui_sq) # shape: (1,)
+    term_kl2 = (1.5) * torch.sum(out_Mnet_var_div_sigmaRui_sq - torch.log(out_Mnet_var_div_sigmaRui_sq) - 1) # shape: (1,)
+    loss_kl = term_kl1 + term_kl2 #shape: (1,)
+    
+    loss_mse = F.mse_loss(Y, Y_rec, reduction='sum') # shape: (1,)
+    
+    # print('loss mse:',loss_mse)
+
+    loss_kl = CONST_KL*loss_kl
+    loss_mse = CONST_MSE*loss_mse
+
+    loss = (1.0-theta_val)*loss_mse + theta_val*loss_kl
+
+    return loss, loss_kl, loss_mse
+
+def loss_BCD_old(Y, MR, Y_rec, out_Cnet, out_Mnet_mean, out_Mnet_var, sigmaRui_sq, theta_val=0.5):
     """
     Args:
         out_CNet: output of CNet, estimation of the separated concentrations in the image, one layer for each stain,

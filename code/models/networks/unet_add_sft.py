@@ -26,15 +26,19 @@ class SFT_Layer(nn.Module):
 
 
 class M2CodeNet(nn.Module):
-    def __init__(self, stain_dim=3, n_stains=2, out_dim=10):
+    def __init__(self, stain_dim=3, n_stains=2, out_dim=None):
         super().__init__()
+        self.in_dim = stain_dim * n_stains
+        self.out_dim = out_dim
+        if self.out_dim is None:
+            self.out_dim = stain_dim * n_stains
         self.fc = nn.Sequential(
-            nn.Linear(stain_dim*n_stains, out_dim),
+            nn.Linear(self.in_dim, self.out_dim),
             nn.LeakyReLU(0.2),
         )
     def forward(self, input):
         """
-        input: B x stain_dim*n_stains
+        input: B x out_dim
         """
         return self.fc(input)
 
@@ -114,9 +118,9 @@ class UNetAddSFT(nn.Module):
     def __init__(self, in_nc=3, out_nc=6, nc=64, num_blocks=3, learn_residual=True):
         super().__init__()
         self.learn_residual = learn_residual
-        code_len = 10
         nc = [nc for _ in range(5)]
-        self.M2codenet = M2CodeNet(code_len=code_len)
+        self.M2codenet = M2CodeNet()
+        code_len = self.M2codenet.out_dim
 
         self.first_conv = nn.Conv2d(in_nc, nc[0], kernel_size=7, stride=1, padding=3)
 
@@ -146,6 +150,14 @@ class UNetAddSFT(nn.Module):
 
 
     def forward(self, x, out_M=None):
+        """
+        input:
+            x: (B, 3, H, W)
+            out_M: (B, n_stains*stain_dim + n_stains)
+        output:
+            out: (B, 2, H, W)
+        """
+
         M_code = self.M2codenet(out_M)
         
         out = self.first_conv(x)

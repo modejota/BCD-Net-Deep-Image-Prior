@@ -24,13 +24,13 @@ args = set_test_opts()
 for arg in vars(args):
     print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
 
-SAVE_KEYS = ["mnet_name", "patch_size", "pretraining_epochs", "n_samples", "theta_val", "sigmaRui_sq"]
+SAVE_KEYS = ["cnet_name", "mnet_name", "patch_size", "pretraining_epochs", "n_samples", "theta_val", "sigmaRui_sq"]
 
 MAIN_PATH = "/work/work_fran/Deep_Var_BCD/"
 RESULTS_PATH_CAMELYON = os.path.join(MAIN_PATH, args.results_dir, f"results_camelyon.csv")
 RESULTS_PATH_WSSB = os.path.join(MAIN_PATH, args.results_dir, f"results_wssb.csv")
 
-MODEL_DIR_NAME = f"{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
+MODEL_DIR_NAME = f"{args.cnet_name}_{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigmaRui_sq}sigmaRui_{args.n_samples}nsamples"
 LOAD_MODEL_PATH = os.path.join(args.load_model_dir, f"{MODEL_DIR_NAME}/")
 
 TRAIN_CENTERS = [0,2,4]
