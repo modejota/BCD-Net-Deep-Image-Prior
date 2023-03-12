@@ -144,7 +144,8 @@ class DVBCDModel():
         Y_rec_rgb_norm = torch.clamp(Y_rec_rgb, 0.0, 255.0)
         #Y_rec_rgb_norm = 255.0*normalize(Y_rec_rgb)
         
-        mse_rec = torch.nn.functional.mse_loss(Y_OD, Y_rec_od, reduction='none').mean(dim=(1, 2, 3)).mean()
+        mse_rec = ((Y_OD - Y_rec_od)**2).mean(dim=(1, 2, 3)).mean()
+        #mse_rec = torch.nn.functional.mse_loss(Y_OD, Y_rec_od, reduction='none').mean(dim=(1, 2, 3)).mean()
         psnr_rec = peak_signal_noise_ratio(Y_rec_rgb_norm, Y_RGB_norm).mean()
         ssim_rec = structural_similarity_index_measure(Y_rec_rgb_norm, Y_RGB_norm)
         metrics_dic = {

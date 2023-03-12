@@ -41,8 +41,8 @@ filenames_list = []
 out_M_list = []
 out_C_list = []
 for idx, batch in enumerate(tqdm(dataloader)):
-    Y, Y_OD, filenames = batch
-    Y_OD = Y_OD.to(DEVICE)
+    Y_RGB, filenames = batch
+    Y_OD = model._rgb2od(Y_RGB).to(DEVICE)
     out_M, out_C = model.deconvolve(Y_OD)
 
     out_M_list = out_M_list + list(out_M)

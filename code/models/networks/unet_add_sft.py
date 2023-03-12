@@ -78,6 +78,14 @@ class Down(nn.Module):
         self.down_sample = nn.Conv2d(in_chn, out_chn, kernel_size=3, stride=2, padding=1)
 
     def forward(self, x, M_code):
+        """
+        input:
+            x: B x C x H x W
+            M_code: B x n_features
+        output:
+            x: B x C x H/2 x W/2
+            skip: B x C x H x W
+        """
         B, C, H, W = x.size()
         B_h, C_h = M_code.size()
         ker_code_exp = M_code.view((B_h, C_h, 1, 1)).expand((B_h, C_h, H, W))  # kernel_map stretch
@@ -153,7 +161,7 @@ class UNetAddSFT(nn.Module):
         """
         input:
             x: (B, 3, H, W)
-            out_M: (B, n_stains*stain_dim + n_stains)
+            out_M: (B, n_stains*stain_dim)
         output:
             out: (B, 2, H, W)
         """
@@ -180,14 +188,3 @@ class UNetAddSFT(nn.Module):
         #     out[:, :3, :, :] = out[:, :3, :, :] + x
 
         return out
-
-
-
-if __name__ == "__main__":
-    model = UNetAddSFT(in_nc=3, out_nc=6, nc=64, num_blocks=3).cuda()
-    print(model)
-    x = torch.rand(2, 3, 180, 160).cuda()
-    k = torch.rand(2, 1, 21, 21).cuda()
-    y = model(x, k)
-    print(y.shape)
-    print("Total paramerters: {}".format(sum(x.numel() for x in model.parameters())))

@@ -13,7 +13,6 @@ torch.backends.cudnn.benchmark = True
 torch.autograd.set_detect_anomaly(True)
 
 USE_GPU = True
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
 if USE_GPU and torch.cuda.is_available():
     DEVICE = torch.device('cuda')
 else:
@@ -75,7 +74,7 @@ callbacks = [
     History(path = HISTORY_PATH)]
 model.set_callbacks(callbacks)
 
-if torch.cuda.device_count() > 1:
+if torch.cuda.device_count() > 1 and USE_GPU:
     print("Using", torch.cuda.device_count(), "GPUs!")
     model.DP()
 model.to(DEVICE)

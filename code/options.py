@@ -24,7 +24,7 @@ def set_train_opts():
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
     parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data (default: 0.1)")
-    parser.add_argument('--epochs', type=int, default=50, help="Training epochs (default: 40)")
+    parser.add_argument('--epochs', type=int, default=50, help="Training epochs")
     parser.add_argument('--pretraining_epochs', type=int, default=1, help="Pretraining epohcs (default: 1)")
     parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")
 
