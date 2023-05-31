@@ -1,4 +1,5 @@
 import pandas as pd
+import wandb
 
 class Callback():
     def __init__(self):
@@ -17,14 +18,6 @@ class Callback():
         pass
     
     def on_val_step_end(self, step, logs=None):
-        """Called at the end of a training step."""
-        pass
-    
-    def on_test_step_begin(self, step, logs=None):
-        """Called at the beginning of a training step."""
-        pass
-    
-    def on_test_step_end(self, step, logs=None):
         """Called at the end of a training step."""
         pass
 
@@ -78,14 +71,6 @@ class CallbacksList(Callback):
         for callback in self.callbacks:
             callback.on_val_step_end(step, logs)
     
-    def on_test_step_begin(self, step, logs=None):
-        for callback in self.callbacks:
-            callback.on_test_step_begin(step, logs)
-    
-    def on_test_step_end(self, step, logs=None):
-        for callback in self.callbacks:
-            callback.on_test_step_end(step, logs)
-    
     def on_epoch_begin(self, epoch, logs=None):
         for callback in self.callbacks:
             callback.on_epoch_begin(epoch, logs)
@@ -107,7 +92,7 @@ class EarlyStopping(Callback):
     Early stops the training if validation loss doesn't improve after a given patience.
     Adapted from https://github.com/Bjarten/early-stopping-pytorch/blob/master/pytorchtools.py
     """
-    def __init__(self, model, score_name, mode="min", patience=10, delta=0.0, path="", verbose=True):
+    def __init__(self, model, score_name, mode="min", patience=10, delta=0.0, path="", verbose=True, wandb_run=None):
         """
         Args:
             model: model to monitor
@@ -131,6 +116,7 @@ class EarlyStopping(Callback):
         self.verbose = verbose
         self.delta = delta
         self.path = path
+        self.wandb_run = wandb_run
 
         self.counter = 0
         self.best_score = None
@@ -161,8 +147,14 @@ class EarlyStopping(Callback):
         '''
         Saves model
         '''
-        name = self.path + "best.pt"
-        self.model.save(name)
+        name = "best.pt"
+        file_path = self.path + name
+        self.model.save(file_path)
+        if self.wandb_run:
+            wandb_name = f"{self.wandb_run.name}_{name}"
+            artifact = wandb.Artifact(wandb_name, type="weights")
+            artifact.add_file(file_path)
+            self.wandb_run.log_artifact(artifact)
         if self.verbose:
             print(f'Best score improved. Model saved to {self.path}.')
     
@@ -170,7 +162,7 @@ class ModelCheckpoint(Callback):
     """
     Saves model after each epoch.
     """
-    def __init__(self, model, path, save_freq=10, verbose=True):
+    def __init__(self, model, path, save_freq=10, verbose=True, wandb_run=None):
         """
         Args:
             model: model to monitor
@@ -181,33 +173,46 @@ class ModelCheckpoint(Callback):
         self.path = path
         self.verbose = verbose
         self.save_freq = save_freq
+        self.wandb_run = wandb_run
 
     def on_epoch_end(self, epoch, logs=None):
         if epoch % self.save_freq == 0:
-            name = self.path + f"epoch{epoch}.pt"
-            self.model.save(name)
+            name = f"epoch{epoch}.pt"
+            file_path = self.path + f"epoch{epoch}.pt"
+            self.model.save(file_path)
+            if self.wandb_run is not None:
+                wandb_name = f"{self.wandb_run.name}_{name}"
+                artifact = wandb.Artifact(wandb_name, type="weights")
+                artifact.add_file(file_path)
+                self.wandb_run.log_artifact(artifact)
             if self.verbose:
                 print(f"Model saved to {self.path}.")
 
 class History(Callback):
-    def __init__(self, path, verbose=True):
+    def __init__(self, path, verbose=True, wandb_run=None):
         self.history = {"epoch" : []}
         self.path = path
         self.verbose = verbose
+        self.wandb_run = wandb_run
     
     def get_history(self):
         return self.history
     
     def on_epoch_end(self, epoch, logs=None):
-        self.history["epoch"].append(epoch)
-        if logs is not None:
-            for k, v in logs.items():
-                if k not in self.history:
-                    self.history[k] = []
-                self.history[k].append(v)
+        if self.wandb_run is not None:
+            if logs is not None:
+                self.wandb_run.log(logs, step=epoch)                    
+        else:
+            self.history["epoch"].append(epoch)
+            if logs is not None:
+                for k, v in logs.items():
+                    if k not in self.history:
+                        self.history[k] = []
+                    self.history[k].append(v)
     
     def on_train_end(self, logs=None):
-        if self.verbose:
-            print(f"Saving history to {self.path}.")
-        history_df = pd.DataFrame(self.history)
-        history_df.to_csv(self.path, index=False)
+        if self.wandb_run is None:
+            if self.verbose:
+                print(f"Saving history to {self.path}.")
+            history_df = pd.DataFrame(self.history)
+            history_df.to_csv(self.path, index=False)

@@ -5,11 +5,24 @@ from torchmetrics.functional import structural_similarity_index_measure
 
 from tqdm import tqdm
 
-from .loss import loss_BCD
-from .networks.cnet import get_cnet
-from .networks.mnet import get_mnet
+from ..callbacks import CallbacksList
 
-from utils.callbacks import CallbacksList
+from .networks.mnet import MNet, AnalyticalMNet
+from .networks.unet import UNet
+from .networks.unet_add_sft import UNetAddSFT
+
+def get_mnet(net_name, stain_dim=3, fc_hidden_dim=50):
+    return MNet(net_name, stain_dim, fc_hidden_dim)
+
+def get_cnet(net_name):
+    if net_name[-3:] == 'sft':
+        print('Using SFT in UNet')
+        net_name = net_name[:-3]
+        num_blocks = int(net_name[-1])
+        return UNetAddSFT(in_nc=3, out_nc=2, nc=64, num_blocks=num_blocks)
+    else:
+        num_blocks = int(net_name[-1])
+        return UNet(in_nc=3, out_nc=2, nc=64, num_blocks=num_blocks)
 
 def peak_signal_noise_ratio(A, B, max=255.0):
     """
@@ -38,43 +51,128 @@ def normalize(A):
     A = (A - min) / (max - min)
     return A
 
+def sample_from_normal(mean, covar=None):
+    """
+    input: 
+        mean: tensor of shape (batch_size, D,)
+        covar: tensor of shape (batch_size, D, D)
+    return:
+        sample: tensor of shape (batch_size, D,)
+    """
+    if covar is None:
+        covar = torch.eye(mean.shape[1])
+    dist = torch.distributions.MultivariateNormal(mean, covar)
+    sample = dist.sample()
+    return sample
+
+def sample_from_matrix_normal(mean, covar_U=None, covar_V=None):
+    """
+    input: 
+        mean: tensor of shape (batch_size, N, D)
+        covar_U: tensor of shape (batch_size, N, N)
+        covar_V: tensor of shape (batch_size, D, D)
+    return:
+        sample: tensor of shape (batch_size, N, D)
+    """
+    batch_size, N, D = mean.shape
+    if covar_U is None:
+        covar_U = torch.eye(N)
+    if covar_V is None:
+        covar_V = torch.eye(D)
+    mean_fl = mean.view(batch_size, -1) # shape: (batch_size, N * D)
+    covar = torch.kron(covar_U, covar_V) # shape: (batch_size, N * D, N * D)
+    sample_fl = sample_from_normal(mean_fl, covar) # shape: (batch_size, N * D)
+    sample = sample_fl.view(batch_size, N, D) # shape: (batch_size, N, D)
+    return sample
+
+CONST_KL = 1.0
+CONST_MSE = 1.0
+
+
+def loss_BCD(Y, MR, out_M_mean, out_M_var, out_C_mean, sigma_sq=0.05, lambda_sq=0.5, theta_val=0.5):
+    """
+    Args:
+        Y: OD image, shape: batch_size x 3 x H x W
+        MR: Ruifrok matrix, shape: batch_size x 3 x 2
+        out_M_mean: output of Mnet, mean for the color vector matrix, shape: batch_size x 3 x 2
+        out_M_var: output of Mnet, variance for the color vector matrix, shape: batch_size x 2 x 2
+        out_C_mean: output of Cnet, mean for the stain concentration matrix, shape: batch_size x n_stains x H x W
+        Y_rec_mean: reconstructed OD image, shape: batch_size x 3 x H x W
+        sigma_sq: variance of the Ruifrok prior, shape: batch_size x 1 x 2
+        theta_val: weight of the KL divergence term, scalar        
+    """
+
+    out_M_sample = sample_from_matrix_normal(out_M_mean, covar_U=out_M_var) # shape: (batch, 3, 2)
+    #out_C_sample = out_C_mean + torch.rand_like(out_C_mean)*torch.sqrt(out_C_var) # shape: (batch, n_stains, H, W)
+    #out_C_sample = out_C_mean # shape: (batch, n_stains, H, W)
+    out_C_sample_flat = out_C_mean.view(out_C_mean.shape[0], out_C_mean.shape[1], -1) # shape: (batch, n_stains, H*W)
+    Y_rec_sample = torch.matmul(out_M_sample, out_C_sample_flat) #shape: (batch, 3, H * W)
+
+    out_M_var_div_sigma_sq = out_M_var / sigma_sq # shape: (batch, 1, 2)
+
+    # el primero es el h, y el segundo es el e
+    mse_mean_vecs = (out_M_mean - MR)**2 # shape: (batch, 3, 2)
+    mse_mean_vecs = torch.sum(mse_mean_vecs, 1) # shape: (batch, 2)
+
+    term_kl1 = 0.5 * torch.sum(mse_mean_vecs / sigma_sq) # shape: (1,)
+    term_kl2 = (1.5) * torch.sum(out_M_var_div_sigma_sq - torch.log(out_M_var_div_sigma_sq) - 1) # shape: (1,)
+    loss_kl = term_kl1 + term_kl2 #shape: (1,)
+    
+    loss_mse = (0.5 / lambda_sq) * torch.sum((Y - Y_rec_sample)**2) # shape: (1,)
+    
+    # print('loss mse:',loss_mse)
+
+    loss_kl = CONST_KL*loss_kl
+    loss_mse = CONST_MSE*loss_mse
+
+    loss = (1.0-theta_val)*loss_mse + theta_val*loss_kl
+
+    return loss, loss_kl, loss_mse
+
 class DVBCDModule(torch.nn.Module):
-    def __init__(self, cnet_name, mnet_name) -> None:
+    def __init__(self, cnet_name, mnet_name, M_ref=None, sigma_sq=None, lambda_sq=None) -> None:
         super().__init__()
         self.cnet_name = cnet_name
         self.mnet_name = mnet_name
         self.cnet = get_cnet(cnet_name)
         self.mnet = get_mnet(mnet_name)
 
+        self.M_ref = M_ref
+        self.sigma_sq = sigma_sq
+        self.lambda_sq = lambda_sq
+
         self.sft = self.cnet_name[-3:] == 'sft'
+        self.analytical = self.mnet_name == 'analytical'
+
     
-    def forward(self, y):
-        batch_size, _, H, W = y.shape 
-        out_M_mean, out_M_var = self.mnet(y) # shape: (batch_size, 3, 2), (batch_size, 1, 2)
-        out_M_sample = out_M_mean + torch.rand_like(out_M_mean)*torch.sqrt(out_M_var)
+    def forward(self, y, **kwargs):
+        batch_size, _, _, _ = y.shape
+
+        if self.analytical:
+            M_ref = kwargs['M_ref']
+            sigma_sq = kwargs['sigma_sq']
+            lambda_sq = kwargs['lambda_sq']
+            out_C_mean = self.cnet(y) # shape: (batch_size, 2, H, W)
+            out_M_mean, out_M_var = self.mnet(y, out_C_mean, M_ref, sigma_sq, lambda_sq) # shape: (batch_size, 3, 2), (batch_size, 2, 2)
 
         if self.sft:
+            out_M_mean, out_M_var = self.mnet(y) # shape: (batch_size, 3, 2), (batch_size, 1, 2)
             out_M_mean_fl = out_M_mean.view(batch_size, -1)
-            out_M_sample_fl = out_M_sample.view(batch_size, -1)
             out_C_mean = self.cnet(y, out_M_mean_fl) # shape: (batch_size, 2, H, W)
-            out_C_sample = self.cnet(y, out_M_sample_fl) # shape: (batch_size, 2, H, W)
         else:
             out_C_mean = self.cnet(y) # shape: (batch_size, 2, H, W)
-            out_C_sample = self.cnet(y) # shape: (batch_size, 2, H, W)
-        out_C_mean_fl = out_C_mean.view(-1, 2, H * W) #shape: (batch, 2, H * W)
-        out_C_sample_fl = out_C_sample.view(-1, 2, H * W) #shape: (batch, 2, H * W)
+        
+        #out_C_mean_fl = out_C_mean.view(-1, 2, H * W) #shape: (batch, 2, H * W)
+        #Y_rec_od_mean = torch.matmul(out_M_mean, out_C_mean_fl) #shape: (batch, 3, H * W)
+        #Y_rec_od_mean = Y_rec_od_mean.view(batch_size, 3, H, W) #shape: (batch, 3, H, W)
 
-        Y_rec_od_mean = torch.matmul(out_M_mean, out_C_mean_fl) #shape: (batch, 3, H * W)
-        Y_rec_od_sample = torch.matmul(out_M_sample, out_C_sample_fl) #shape: (batch, 3, H * W)
-        Y_rec_od_mean = Y_rec_od_mean.view(batch_size, 3, H, W) #shape: (batch, 3, H, W)
-        Y_rec_od_sample = Y_rec_od_sample.view(batch_size, 3, H, W) #shape: (batch, 3, H, W)
-
-        return out_M_mean, out_M_var, out_C_mean, Y_rec_od_mean, out_M_sample, out_C_sample, Y_rec_od_sample
+        return out_M_mean, out_M_var, out_C_mean
 
 class DVBCDModel():
     def __init__(
                 self, cnet_name='unet6', mnet_name='mobilenetv3s',
-                sigmaRui_sq=torch.tensor([0.05, 0.05]), theta_val=0.5, 
+                estimate_hyperparams=False,
+                sigma_sq=0.05, lambda_sq = 0.05, theta_val=0.5, 
                 lr=1e-4, lr_decay=0.1, clip_grad=np.Inf
                 ):
 
@@ -82,10 +180,10 @@ class DVBCDModel():
 
         self.loss_fn = loss_BCD
 
-        self.sigmaRui_sq = sigmaRui_sq
-        self.orig_theta_val = theta_val
+        self.sigma_sq = sigma_sq
+        self.lambda_sq = lambda_sq
         self.theta_val = theta_val
-        self.pretraining_theta_val = 0.999
+        self.estimate_hyperparams = estimate_hyperparams
 
         self.lr = lr
         self.lr_decay = lr_decay
@@ -101,14 +199,54 @@ class DVBCDModel():
         self.device = "cpu"
         self.dp = False
 
+    def forward_and_loss(self, batch):
+
+        Y_RGB, MR = batch
+        Y_OD = self._rgb2od(Y_RGB).to(self.device)
+        MR = MR.to(self.device)
+
+        out_M_mean, out_M_var, out_C_mean = self.module(Y_OD, M_ref = MR, sigma_sq = self.sigma_sq, lambda_sq = self.lambda_sq) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
+
+        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, out_C_mean, self.sigma_sq, self.theta_val)
+
+        out = {
+            'Y_RGB': Y_RGB, 'Y_OD': Y_OD, 'MR': MR,
+            'out_M_mean': out_M_mean, 'out_M_var': out_M_var, 'out_C_mean': out_C_mean,
+            'loss': loss, 'loss_kl': loss_kl, 'loss_mse': loss_mse
+        }
+
+        return out
     
+    def update_hyperparams(self, batch, normalize=False):
+
+        Y_RGB, MR = batch
+        Y_OD = self._rgb2od(Y_RGB).to(self.device)
+        MR = MR.to(self.device)
+        out_M_mean, out_M_var, out_C_mean = self.module(Y_OD, M_ref = MR, sigma_sq = self.sigma_sq, lambda_sq = self.lambda_sq) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
+
+        out_M_sample = sample_from_matrix_normal(out_M_mean, out_M_var) # shape: (batch_size, 3, 2)
+        out_C_mean_fl = out_C_mean.view(-1, 2, H * W) # shape: (batch_size, 2, H * W)
+        Y_rec_sample = torch.matmul(out_M_sample, out_C_mean_fl) # shape: (batch_size, 3, H * W)
+
+        n_stains = out_M_mean.shape[2]
+        H = Y_OD.shape[1]
+        W = Y_OD.shape[2]
+        self.sigma_sq = torch.mean(torch.sum((out_M_sample - MR)**2, dim=(1,2))) / (n_stains)**2 # shape: (batch, 3, n_stains)
+        self.sigma_sq = self.sigma_sq.detach()
+        self.lambda_sq = torch.mean(torch.sum((Y_rec_sample - Y_OD)**2, dim=(1,2))) / (H*W)**2 # shape: (batch, 3, n_stains)
+        self.lambda_sq = self.lambda_sq.detach()
+        if normalize:
+            tmp_sum = self.sigma_sq + self.lambda_sq
+            self.sigma_sq = self.sigma_sq / tmp_sum
+            self.lambda_sq = self.lambda_sq / tmp_sum
+
     def set_callbacks(self, callbacks):
         self.callbacks_list.set_callbacks(callbacks)
     
     def to(self, device):
         self.device = device
         self.module = self.module.to(device)
-        self.sigmaRui_sq = self.sigmaRui_sq.to(device)
+        self.sigma_sq = self.sigma_sq.to(device)
         return self
 
     def init_optimizer(self):
@@ -122,18 +260,20 @@ class DVBCDModel():
         Y_RGB = out_dic['Y_RGB'].to(self.device)
         Y_OD = self._rgb2od(Y_RGB).to(self.device)
         MR = out_dic['MR'].to(self.device)
-        Y_rec_od = out_dic['Y_rec_od'].to(self.device)
+        #Y_rec_od = out_dic['Y_rec_od'].to(self.device)
         out_C_mean = out_dic['out_C_mean'].to(self.device)
         out_M_mean = out_dic['out_M_mean'].to(self.device)
         out_M_var = out_dic['out_M_var'].to(self.device)
+
+        Y_rec_od = torch.matmul(out_M_mean, out_C_mean.view(out_C_mean.shape[0], out_C_mean.shape[1], -1)) #shape: (batch, 3, H * W)
 
         metrics_dic = {}
         batch_size = Y_OD.shape[0]
 
         if compute_loss:
-            loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, Y_rec_od, self.sigmaRui_sq, self.theta_val)
+            loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, Y_rec_od, self.sigma_sq, self.theta_val)
 
-            #loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_C_mean, out_M_mean, out_M_var, self.sigmaRui_sq, self.theta_val)
+            #loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, Y_rec_od, out_C_mean, out_M_mean, out_M_var, self.sigma_sq, self.theta_val)
             metrics_dic = {
                 f"{prefix}_loss": loss.item()/batch_size, f"{prefix}_loss_mse": loss_mse.item()/batch_size, f"{prefix}_loss_kl": loss_kl.item()/batch_size
             }
@@ -199,15 +339,11 @@ class DVBCDModel():
         
         return metrics_dic
 
-    def fit(self, max_epochs, train_dataloader, val_dataloader=None, pretraining=False):
+    def fit(self, max_epochs, train_dataloader, val_dataloader=None):
         if val_dataloader is None:
             val_dataloader = train_dataloader
 
-        self.sigmaRui_sq = self.sigmaRui_sq.to(self.device)
-        if pretraining:
-            self.theta_val = self.pretraining_theta_val
-        else:
-            self.theta_val = self.orig_theta_val
+        self.sigma_sq = self.sigma_sq.to(self.device)
         
         if not self.optim_initiated:
             self.init_optimizer()
@@ -296,23 +432,21 @@ class DVBCDModel():
 
     def train_step(self, batch, batch_idx):
 
-        Y_RGB, MR = batch
-        Y_OD = self._rgb2od(Y_RGB).to(self.device)
-        MR = MR.to(self.device)
-
         self.opt.zero_grad()
 
-        out_M_mean, out_M_var, out_C_mean, Y_rec_od_mean, out_M_sample, out_C_sample, Y_rec_od_sample = self.module(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
-        
-        loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, Y_rec_od_sample, self.sigmaRui_sq, self.theta_val)
-        loss.backward()
+        out = self.forward_and_loss(batch)
+
+        out['loss'].backward()
+
+        if self.estimate_hyperparams:
+            self.update_hyperparams(out)
         
         torch.nn.utils.clip_grad_norm_(self.module.parameters(), self.clip_grad)
 
         self.opt.step()
 
-        loss_dic = {'train_loss' : loss.item(), 'train_loss_mse' : loss_mse.item(), 'train_loss_kl' : loss_kl.item()}
-        out_dic = {'Y_RGB' : Y_RGB.detach().cpu(), 'MR' : MR.detach().cpu(), 'Y_rec_od' : Y_rec_od_mean.detach().cpu(), 'out_C_mean' : out_C_mean.detach().cpu(), 'out_M_mean' : out_M_mean.detach().cpu(), 'out_M_var' : out_M_var.detach().cpu()}
+        loss_dic = {'train_loss' : out['loss'].item(), 'train_loss_mse' : out['loss_mse'].item(), 'train_loss_kl' : out['loss_kl'].item()}
+        out_dic = {'Y_RGB' : out['Y_RGB'].detach().cpu(), 'MR' : out['MR'].detach().cpu(), 'out_C_mean' : out['out_C_mean'].detach().cpu(), 'out_M_mean' : out['out_M_mean'].detach().cpu(), 'out_M_var' : out['out_M_var'].detach().cpu()}
         metrics_dic = self.compute_metrics(out_dic, 'train')
         
         return {**loss_dic, **metrics_dic}
@@ -334,16 +468,11 @@ class DVBCDModel():
                 Y_OD = self._rgb2od(Y_RGB)
                 out_dic['M_GT'] = M_GT.detach().cpu()
 
-            Y_OD = self._rgb2od(Y_RGB).to(self.device)
-            MR = MR.to(self.device)
+            out = self.forward_and_loss((Y_RGB, MR))
 
-            out_M_mean, out_M_var, out_C_mean, Y_rec_od_mean, out_M_sample, out_C_sample, Y_rec_od_sample = self.module(Y_OD) # shape: (batch_size, 3, 2), (batch_size, 1, 2), (batch_size, 2, H, W)
+            loss_dic = {'train_loss' : out['loss'].item(), 'train_loss_mse' : out['loss_mse'].item(), 'train_loss_kl' : out['loss_kl'].item()}
+            out_dic = {'Y_RGB' : out['Y_RGB'].detach().cpu(), 'MR' : out['MR'].detach().cpu(), 'out_C_mean' : out['out_C_mean'].detach().cpu(), 'out_M_mean' : out['out_M_mean'].detach().cpu(), 'out_M_var' : out['out_M_var'].detach().cpu()}
 
-            loss, loss_kl, loss_mse = self.loss_fn(Y_OD, MR, out_M_mean, out_M_var, Y_rec_od_sample, self.sigmaRui_sq, self.theta_val)
-
-            loss_dic = {f'{prefix}_loss' : loss.item(), f'{prefix}_loss_mse' : loss_mse.item(), f'{prefix}_loss_kl' : loss_kl.item()}
-            out_dic = {**out_dic, 'Y_RGB' : Y_RGB.detach().cpu(), 'MR' : MR.detach().cpu(), 'Y_rec_od' : Y_rec_od_mean.detach().cpu(), 'out_C_mean' : out_C_mean.detach().cpu(), 'out_M_mean' : out_M_mean.detach().cpu(), 'out_M_var' : out_M_var.detach().cpu()}
-            
             metrics_dic = self.compute_metrics(out_dic, prefix)
             return {**loss_dic, **metrics_dic}
 

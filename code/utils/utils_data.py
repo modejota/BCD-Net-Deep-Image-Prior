@@ -1,5 +1,5 @@
 import torch
-from .datasets import CamelyonDataset, WSSBDatasetTest, FilesDataset
+from ..datasets import CamelyonDataset, WSSBDatasetTest, FilesDataset
 
 def get_train_dataloaders(camelyon_data_path, patch_size=224, batch_size=16, num_workers=64, val_prop = 0.2, n_samples=None, train_centers=[0,2,4]):
     dataset = CamelyonDataset(camelyon_data_path, train_centers, patch_size=patch_size, n_samples=n_samples)

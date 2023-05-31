@@ -4,7 +4,7 @@ import pandas as pd
 
 from options import set_test_opts
 
-from utils.datasets import CamelyonDataset, WSSBDatasetTest
+from datasets import CamelyonDataset, WSSBDatasetTest
 from models.DVBCDModel import DVBCDModel
 
 print(torch.__version__)

@@ -1,10 +1,10 @@
 import os
 import torch
 
-from utils.callbacks import EarlyStopping, ModelCheckpoint, History
+from callbacks import EarlyStopping, ModelCheckpoint, History
 from options import set_train_opts
 
-from utils.datasets import CamelyonDataset, WSSBDatasetTest
+from datasets import CamelyonDataset, WSSBDatasetTest
 from models.DVBCDModel import DVBCDModel
 
 print(torch.__version__)
@@ -80,7 +80,9 @@ if torch.cuda.device_count() > 1 and USE_GPU:
 model.to(DEVICE)
 
 if args.pretraining_epochs > 0:
-    model.fit(args.pretraining_epochs, train_dataloader, val_dataloader, pretraining=True)
+    model.theta_val = 0.999
+    model.fit(args.pretraining_epochs, train_dataloader, val_dataloader)
     model.init_optimizer()
-model.fit(args.epochs, train_dataloader, val_dataloader, pretraining=False)
+model.theta_val = args.theta_val
+model.fit(args.epochs, train_dataloader, val_dataloader)
 

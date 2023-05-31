@@ -72,6 +72,35 @@ class MNet(nn.Module):
 
         return mean, var
 
-def get_mnet(net_name, stain_dim=3, fc_hidden_dim=50):
-    return MNet(net_name, stain_dim, fc_hidden_dim)
+
+class AnalyticalMNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+    def forward(self, Y_OD, C_mean, M_ref, sigma_sq, lambda_sq):
+        """ Summary of forward function.
+        Args:
+            Y_OD (batch_size, 3, H, W): input OD image
+            C_mean (batch_size, n_stains, H, W): output of CNet
+            M_ref (batch_size, stain_dim, n_stains): reference stain matrix
+            sigma_sq (float): variance of color prior
+            lambda_sq (float): variance of observation model
+        Returns:
+            out_mean (batch_size, stain_dim, n_stains): _description_
+            out_var (batch_size, n_stains, n_stains): _description_
+        """
+
+        batch_size, n_stains = C_mean.shape[0], C_mean.shape[1]
+
+        inv_lambda_sq = 1.0 / lambda_sq
+        inv_sigma_sq = 1.0 / sigma_sq
+
+        C_flat = C_mean.view(batch_size, n_stains, -1) # shape (batch_size, n_stains, H*W)
+
+        out_var_inv = inv_sigma_sq * torch.eye(n_stains).to(C_flat.device) + inv_lambda_sq * C_flat @ C_flat.transpose(1, 2) # shape (batch_size, n_stains, n_stains)
+        out_var = torch.inverse(out_var_inv) # shape (batch_size, n_stains, n_stains)
+        out_mean = (inv_sigma_sq * M_ref + inv_lambda_sq * Y_OD.transpose(1, 2) @ C_flat.transpose(1, 2) ) @ out_var # shape (batch_size, stain_dim, n_stains)
+
+        return out_mean, out_var
+
 
