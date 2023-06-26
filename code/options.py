@@ -4,174 +4,53 @@ import torch
 def set_opts():
     parser = argparse.ArgumentParser()
 
+    parser.add_argument('--mode', default='train', type=str, help="Mode to run the code (train/test)")
+    parser.add_argument('--use_wandb', action='store_true', help="Use wandb or not")
+
     parser.add_argument(
-                        '--camelyon_data_path', default='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/', 
+                        '--camelyon_data_path', default='/data/datasets/Camelyon/Camelyon17/training/patches_224/', 
                         type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
                         )
     parser.add_argument(
-                        '--wssb_data_path', default='/data/BasesDeDatos/Alsubaie/Data/', 
+                        '--wssb_data_path', default='/data/datasets/Alsubaie/Data/', 
                         type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
                         )
-    parser.add_argument('--save_history_dir', default='/work/work_fran/Deep_Var_BCD/history/', type=str, metavar='PATH', help="Path to save the history file (default: /work/work_fran/Deep_Var_BCD/history/)")
-    parser.add_argument('--save_model_dir', default='/work/work_fran/Deep_Var_BCD/weights/', type=str, metavar='PATH', help="Path to save the model weights (default: /work/work_fran/Deep_Var_BCD/weights/)")   
-    parser.add_argument('--save_freq', default=10, type=int, help="Frequency to save the model weights (default: 10)")
+    parser.add_argument('--history_dir', default='/work/work_fran/Deep_Var_BCD/history/', type=str, metavar='PATH', help="Path to save the training history")
+    parser.add_argument('--weights_dir', default='/work/work_fran/Deep_Var_BCD/weights/', type=str, metavar='PATH', help="Path to save the model weights")
+
+    parser.add_argument('--num_workers', default=16, type=int, help="Number of workers to load data")
+
 
     # model settings
-    parser.add_argument('--cnet_name', type=str, default='unet6', help='Cnet model name (default: unet6)')
-    parser.add_argument('--mnet_name', type=str, default='mobilenetv3s', help='Mnet model name (default: mobilenetv3s)')
+    parser.add_argument('--cnet_name', type=str, default='unet_64_3', help='CNet model name')
+    parser.add_argument('--mnet_name', type=str, default='mobilenetv3s_50', help='MNet model name')
 
     # trainning settings
-    parser.add_argument('--val_type', type=str, default='normal', help='Validation type (default: normal)')
-    parser.add_argument('--batch_size_per_gpu', type=int, default=64, help="Batch size of training (default: 32)")
-    parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
-    parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data (default: 0.1)")
-    parser.add_argument('--epochs', type=int, default=50, help="Training epochs")
-    parser.add_argument('--pretraining_epochs', type=int, default=1, help="Pretraining epohcs (default: 1)")
-    parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")
+    parser.add_argument('--batch_size', type=int, default=64, help="Batch size")
+    parser.add_argument('--patch_size', type=int, default=224, help="Patch size of each data sample")
+    parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data")
+    parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs")
+    parser.add_argument('--pretraining_epochs', type=int, default=1, help="Number of pretraining epochs")
+    parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training")
 
-    parser.add_argument('--num_workers', default=16, type=int, help="Number of workers to load data, (default: 16)")
-    parser.add_argument('--resume_path', default='', type=str, metavar='PATH', help="Path to the latest checkpoint (default: None)")
 
     # learning rate
-    parser.add_argument('--lr', type=float, default=1e-4, help="Initial learning rate(default: 1e-4)")
-    parser.add_argument('--lr_decay', type=float, default=0.5, help="Decaying rate for the learning rate (default: 0.5)")
-    parser.add_argument('--patience', type=int, default=10, help="Patience for early stopping (default: 10)")
-
-    # How to clip the gradients norm during the training
-    #parser.add_argument('--clip_grad', type=float, default=1e5, help="Value to clip the gradients of CNet, (default: 1e5)")
+    parser.add_argument('--lr', type=float, default=1e-4, help="Initial learning rate")
+    parser.add_argument('--lr_decay', type=float, default=0.5, help="Decaying rate for the learning rate")
+    parser.add_argument('--early_stop_patience', type=int, default=10, help="Early Stopping patience")
 
     # hyper-parameters
-    parser.add_argument('--sigma_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
+    parser.add_argument('--sigma_rui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M")
+    parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function")
+    parser.add_argument('--theta_pretrain', default=0.99, type=float, help="theta parameter to balance the loss function during pretraining")
 
 
     args = parser.parse_args()
 
     if torch.cuda.is_available():
         args.device = torch.device('cuda')
-        args.batch_size = args.batch_size_per_gpu * torch.cuda.device_count()
     else:
         args.device = torch.device('cpu')
-        args.batch_size = args.batch_size_per_gpu
     print('using device:', args.device)
 
-    return args
-
-def set_train_opts():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-                        '--camelyon_data_path', default='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/', 
-                        type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
-                        )
-    parser.add_argument(
-                        '--wssb_data_path', default='/data/BasesDeDatos/Alsubaie/Data/', 
-                        type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
-                        )
-    parser.add_argument('--save_history_dir', default='/work/work_fran/Deep_Var_BCD/history/', type=str, metavar='PATH', help="Path to save the history file (default: /work/work_fran/Deep_Var_BCD/history/)")
-    parser.add_argument('--save_model_dir', default='/work/work_fran/Deep_Var_BCD/weights/', type=str, metavar='PATH', help="Path to save the model weights (default: /work/work_fran/Deep_Var_BCD/weights/)")   
-    parser.add_argument('--save_freq', default=10, type=int, help="Frequency to save the model weights (default: 10)")
-
-    # model settings
-    parser.add_argument('--cnet_name', type=str, default='unet6', help='Cnet model name (default: unet6)')
-    parser.add_argument('--mnet_name', type=str, default='mobilenetv3s', help='Mnet model name (default: mobilenetv3s)')
-
-    # trainning settings
-    parser.add_argument('--val_type', type=str, default='normal', help='Validation type (default: normal)')
-    parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
-    parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
-    parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data (default: 0.1)")
-    parser.add_argument('--epochs', type=int, default=50, help="Training epochs")
-    parser.add_argument('--pretraining_epochs', type=int, default=1, help="Pretraining epohcs (default: 1)")
-    parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")
-
-    parser.add_argument('--num_workers', default=16, type=int, help="Number of workers to load data, (default: 16)")
-    parser.add_argument('--resume_path', default='', type=str, metavar='PATH', help="Path to the latest checkpoint (default: None)")
-
-    # learning rate
-    parser.add_argument('--lr', type=float, default=1e-4, help="Initial learning rate(default: 1e-4)")
-    parser.add_argument('--lr_decay', type=float, default=0.5, help="Decaying rate for the learning rate (default: 0.5)")
-    parser.add_argument('--patience', type=int, default=10, help="Patience for early stopping (default: 10)")
-
-    # How to clip the gradients norm during the training
-    parser.add_argument('--clip_grad', type=float, default=1e5, help="Value to clip the gradients of CNet, (default: 1e5)")
-
-    # hyper-parameters
-    parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
-
-
-    args = parser.parse_args()
-    return args
-
-def set_test_opts():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-                        '--camelyon_data_path', default='/data/BasesDeDatos/Camelyon/Camelyon17/training/patches_224/', 
-                        type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
-                        )
-    parser.add_argument(
-                        '--wssb_data_path', default='/data/BasesDeDatos/Alsubaie/Data/', 
-                        type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
-                        )
-    parser.add_argument('--load_model_dir', default='/work/work_fran/Deep_Var_BCD/weights/', type=str, metavar='PATH', help="Path to load the model weights (default: /work/work_fran/Deep_Var_BCD/weights/)")   
-    parser.add_argument('--results_dir', default='/work/work_fran/Deep_Var_BCD/results/metrics/', type=str, metavar='PATH', help="Path to save the results (default: /work/work_fran/Deep_Var_BCD/results/)")   
-
-    # model settings
-    parser.add_argument('--cnet_name', type=str, default='unet6', help='Cnet model name (default: unet6)')
-    parser.add_argument('--mnet_name', type=str, default='mobilenetv3s', help='Mnet model name (default: mobilenetv3s)')
-
-    # trainning settings
-    parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
-    parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
-    parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data (default: 0.1)")
-    parser.add_argument('--epochs', type=int, default=50, help="Training epochs (default: 40)")
-    parser.add_argument('--pretraining_epochs', type=int, default=1, help="Pretraining epohcs (default: 1)")
-    parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")
-
-    parser.add_argument('--num_workers', default=16, type=int, help="Number of workers to load data, (default: 16)")
-   
-    # hyper-parameters
-    parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
-    #parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
-
-
-    args = parser.parse_args()
-    return args
-
-def set_deconvolve_opts():
-    parser = argparse.ArgumentParser()
-
-    parser.add_argument(
-                        '--dataset_path', default='/work/Camelyon17/work/DECONVOLUCIONES/Original/', 
-                        type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
-                        )
-    parser.add_argument(
-                        '--save_path', default='/work/work_fran/Deep_Var_BCD/results/deconvolutions/', 
-                        type=str, metavar='PATH', help="Path to save the generated files"
-                        )
-    parser.add_argument(
-                        '--weights_path', default='/work/work_fran/Deep_Var_BCD/weights/', 
-                        type=str, metavar='PATH', help="Path to save the generated files"
-                        )
-    
-    # model settings
-    parser.add_argument('--cnet_name', type=str, default='unet6', help='Cnet model name (default: unet6)')
-    parser.add_argument('--mnet_name', type=str, default='resnet18ft', help='Mnet model name (default: resnet18in)')
-    
-    # trainning settings
-    parser.add_argument('--batch_size', type=int, default=64, help="Batch size of training (default: 32)")
-    parser.add_argument('--patch_size', type=int, default=224, help="Patch size of data sample  (default: 224)")
-    parser.add_argument('--pretraining_epochs', type=int, default=1, help="Pretraining epohcs (default: 1)")
-    parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training (default: 60000)")
-    parser.add_argument('--num_workers', default=16, type=int, help="Number of workers to load data, (default: 16)")
-
-    # hyper-parameters
-    parser.add_argument('--sigmaRui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M (default: 0.05)")
-    parser.add_argument('--theta_val', default=0.5, type=float, help="Theta hyperparameter to balance the loss function (default: 0.5)")
-    #parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function (default: 0.5)")
-
-    args = parser.parse_args()
     return args

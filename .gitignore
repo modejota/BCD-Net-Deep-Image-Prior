@@ -145,3 +145,5 @@ history/*
 .nfs*
 nohup.out
 *.mat
+
+wandb/*
