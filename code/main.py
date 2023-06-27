@@ -91,11 +91,11 @@ def test(args):
     for organ in ['Lung', 'Breast', 'Colon']:
         m = evaluate_GT(model, wssb_dataloader_dic[organ], sigma_rui_sq=args.sigma_rui_sq, theta_val=args.theta_val, device='cpu')
         for metric in m:
-            metrics[f'test/wssb_{organ}_{metric}'] = m[metric]
+            metrics[f'test/wssb/{organ}/{metric}'] = m[metric]
     
     m = evaluate(model, cam_dataloader, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.theta_val)
     for metric in m:
-        metrics[f'test/camelyon_{metric}'] = m[metric]
+        metrics[f'test/camelyon/{metric}'] = m[metric]
 
     for metric in metrics:
         print('{:<25s}: {:s}'.format(metric, str(metrics[metric])))

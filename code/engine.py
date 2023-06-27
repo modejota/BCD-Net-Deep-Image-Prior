@@ -94,17 +94,18 @@ def evaluate_GT(model, dataloader, sigma_rui_sq=0.05, theta_val=0.5, device='cud
             metrics_dict['psnr_rec'] += torch.sum(peak_signal_noise_ratio(Y_rec, Y)).item()
             metrics_dict['ssim_rec'] += torch.sum(structural_similarity(Y_rec, Y)).item()
 
-            metrics_dict['mse_gt_h'] += torch.sum(torch.pow(H_gt - H_rec, 2)).item() / (3.0*H*W)
-            metrics_dict['mse_gt_e'] += torch.sum(torch.pow(E_gt - E_rec, 2)).item() / (3.0*H*W)
-            metrics_dict['mse_gt'] += (metrics_dict['mse_gt_h'] + metrics_dict['mse_gt_e'])/2.0
+            metrics_dict['mse_gt_h'] += torch.sum(torch.pow(H_gt_od - H_rec_od, 2)).item() / (3.0*H*W)
+            metrics_dict['mse_gt_e'] += torch.sum(torch.pow(E_gt_od - E_rec_od, 2)).item() / (3.0*H*W)
 
             metrics_dict['psnr_gt_h'] += torch.sum(peak_signal_noise_ratio(H_gt, H_rec)).item()
             metrics_dict['psnr_gt_e'] += torch.sum(peak_signal_noise_ratio(E_gt, E_rec)).item()
-            metrics_dict['psnr_gt'] += (metrics_dict['psnr_gt_h'] + metrics_dict['psnr_gt_e'])/2.0
 
             metrics_dict['ssim_gt_h'] += torch.sum(structural_similarity(H_gt, H_rec)).item()
             metrics_dict['ssim_gt_e'] += torch.sum(structural_similarity(E_gt, E_rec)).item()
-            metrics_dict['ssim_gt'] += (metrics_dict['ssim_gt_h'] + metrics_dict['ssim_gt_e'])/2.0
+            
+    metrics_dict['mse_gt'] = (metrics_dict['mse_gt_h'] + metrics_dict['mse_gt_e'])/2.0
+    metrics_dict['psnr_gt'] = (metrics_dict['psnr_gt_h'] + metrics_dict['psnr_gt_e'])/2.0
+    metrics_dict['ssim_gt'] = (metrics_dict['ssim_gt_h'] + metrics_dict['ssim_gt_e'])/2.0
 
     for key in metrics_dict.keys():
         metrics_dict[key] /= len(dataloader.dataset)
