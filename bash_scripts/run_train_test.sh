@@ -24,13 +24,7 @@ then
     num_workers=32
     batch_size=64
 
-    #################################################################################################
-
-    #python code/train.py --val_type=normal --epochs=1 --cnet_name=unet6sft --batch_size=$batch_size --num_workers=$num_workers --n_samples=10000 > output/salida_${SERVER}_train_${BASHPID}.txt 2>&1
-    #python code/test.py --cnet_name=unet6sft --batch_size=$batch_size --num_workers=$num_workers --n_samples=10000 > output/salida_${SERVER}_test_${BASHPID}.txt 2>&1
-
-    #################################################################################################
-    num_epochs=100
+    num_epochs=50
     num_runs=1
     theta_val_array=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0)
 
@@ -48,7 +42,7 @@ then
     num_workers=24
     batch_size=64
 
-    num_epochs=100
+    num_epochs=50
     num_runs=1
     theta_val_array=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0)
 

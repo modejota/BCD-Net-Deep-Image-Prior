@@ -70,33 +70,32 @@ def evaluate_GT(model, dataloader, sigma_rui_sq=0.05, theta_val=0.5, device='cud
             M_gt = M_gt.to(device)
             C_gt = direct_deconvolution(Y_od, M_gt).to(device) # (batch_size, 2, H, W)
 
-            H_gt = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)[:,0,:,:] # (batch_size, H, W)
-            E_gt = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)[:,1,:,:] # (batch_size, H, W)
+            H_gt_od = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)[:,0,:,:] # (batch_size, H, W)
+            H_gt = torch.clamp(od2rgb(H_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
+            E_gt_od = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)[:,1,:,:] # (batch_size, H, W)
+            E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
 
             M_mean, M_var, C_mean = model(Y_od) # M_mean: (batch_size, 3, 2), M_var: (batch_size, 3, 2), C_mean: (batch_size, 2, H, W)
             loss, loss_rec, loss_kl = criterion(Y_od, M_mean, M_var, C_mean)
 
             Y_rec_od = torch.einsum('bcs,bshw->bchw', M_mean, C_mean) # (batch_size, 3, H, W)
-            Y_rec = od2rgb(Y_rec_od) # (batch_size, 3, H, W)
-            Y_rec = torch.clamp(Y_rec, 0.0, 255.0)
+            Y_rec = torch.clamp(od2rgb(Y_rec_od), 0.0, 255.0) # (batch_size, 3, H, W)
 
             H_rec_od = torch.einsum('bcs,bshw->bschw', M_mean, C_mean)[:,0,:,:] # (batch_size, H, W)
-            H_rec = od2rgb(H_rec_od) # (batch_size, 3, H, W)
-            H_rec = torch.clamp(H_rec, 0.0, 255.0)
+            H_rec = torch.clamp(od2rgb(H_rec_od), 0.0, 255.0) # (batch_size, 3, H, W)
             E_rec_od = torch.einsum('bcs,bshw->bschw', M_mean, C_mean)[:,1,:,:] # (batch_size, H, W)
-            E_rec = od2rgb(E_rec_od) # (batch_size, 3, H, W)
-            E_rec = torch.clamp(E_rec, 0.0, 255.0)
+            E_rec = torch.clamp(od2rgb(E_rec_od), 0.0, 255.0) # (batch_size, 3, H, W)
 
             metrics_dict['loss'] += loss.item()
             metrics_dict['loss_rec'] += loss_rec.item()
             metrics_dict['loss_kl'] += loss_kl.item()
 
-            metrics_dict['mse_rec'] += torch.sum(torch.pow(Y_rec - Y, 2)).item() / (3*H*W)
+            metrics_dict['mse_rec'] += torch.sum(torch.pow(Y_rec_od - Y_od, 2)).item() / (3.0*H*W)
             metrics_dict['psnr_rec'] += torch.sum(peak_signal_noise_ratio(Y_rec, Y)).item()
             metrics_dict['ssim_rec'] += torch.sum(structural_similarity(Y_rec, Y)).item()
 
-            metrics_dict['mse_gt_h'] += torch.sum(torch.pow(H_gt - H_rec, 2)).item() / (3*H*W)
-            metrics_dict['mse_gt_e'] += torch.sum(torch.pow(E_gt - E_rec, 2)).item() / (3*H*W)
+            metrics_dict['mse_gt_h'] += torch.sum(torch.pow(H_gt - H_rec, 2)).item() / (3.0*H*W)
+            metrics_dict['mse_gt_e'] += torch.sum(torch.pow(E_gt - E_rec, 2)).item() / (3.0*H*W)
             metrics_dict['mse_gt'] += (metrics_dict['mse_gt_h'] + metrics_dict['mse_gt_e'])/2.0
 
             metrics_dict['psnr_gt_h'] += torch.sum(peak_signal_noise_ratio(H_gt, H_rec)).item()
@@ -108,7 +107,7 @@ def evaluate_GT(model, dataloader, sigma_rui_sq=0.05, theta_val=0.5, device='cud
             metrics_dict['ssim_gt'] += (metrics_dict['ssim_gt_h'] + metrics_dict['ssim_gt_e'])/2.0
 
     for key in metrics_dict.keys():
-        metrics_dict[key] /= len(dataloader)
+        metrics_dict[key] /= len(dataloader.dataset)
 
     return metrics_dict
 
@@ -130,6 +129,7 @@ def evaluate(model, dataloader, sigma_rui_sq=0.05, theta_val=0.5, device='cuda')
     with torch.no_grad():
         for batch_idx, batch in pbar:
             Y = batch # Y: (batch_size, 3, H, W), M_gt: (batch_size, 3, 2)
+            batch_size, _, H, W = Y.shape
             Y = Y.to(device)
             Y_od = rgb2od(Y)
 
@@ -137,18 +137,18 @@ def evaluate(model, dataloader, sigma_rui_sq=0.05, theta_val=0.5, device='cuda')
             loss, loss_rec, loss_kl = criterion(Y_od, M_mean, M_var, C_mean)
 
             Y_rec_od = torch.einsum('bcs,bshw->bchw', M_mean, C_mean) # (batch_size, 3, H, W)
-            Y_rec = od2rgb(Y_rec_od) # (batch_size, 3, H, W)
+            Y_rec = torch.clamp(od2rgb(Y_rec_od), 0.0, 255.0) # (batch_size, 3, H, W)
 
             metrics_dict['loss'] += loss.item()
             metrics_dict['loss_rec'] += loss_rec.item()
             metrics_dict['loss_kl'] += loss_kl.item()
 
-            metrics_dict['mse_rec'] += torch.sum(torch.pow(Y_rec - Y, 2)).item()
+            metrics_dict['mse_rec'] += torch.sum(torch.pow(Y_rec_od - Y_od, 2)).item() / (3.0*H*W)
             metrics_dict['psnr_rec'] += torch.sum(peak_signal_noise_ratio(Y_rec, Y)).item()
             metrics_dict['ssim_rec'] += torch.sum(structural_similarity(Y_rec, Y)).item()
 
     for key in metrics_dict.keys():
-        metrics_dict[key] /= len(dataloader)
+        metrics_dict[key] /= len(dataloader.dataset)
 
     return metrics_dict
 
