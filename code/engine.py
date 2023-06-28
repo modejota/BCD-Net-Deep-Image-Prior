@@ -32,11 +32,9 @@ class LossBCD(torch.nn.Module):
         loss_kl = (0.5 / self.sigma_rui_sq) * torch.pow( M_mean - M_ruifrok , 2) + 1.5 * ( M_var / self.sigma_rui_sq - torch.log(M_var / self.sigma_rui_sq)) # (batch_size, 3, 2)
         loss_kl = torch.sum(loss_kl) # (1)
 
-        C_mean_fl = C_mean.view(batch_size, 2, -1) # (batch_size, 2, H*W)
-        Y_rec_fl = torch.matmul(M_mean, C_mean_fl) # (batch_size, 3, H*W)
-        Y_fl = Y.view(batch_size, 3, -1) # (batch_size, 3, H*W)
+        Y_rec = torch.einsum('bcs,bshw->bchw', M_mean, C_mean) # (batch_size, 3, H, W)
 
-        loss_rec = torch.sum(torch.pow(Y_fl - Y_rec_fl, 2)) # (1) 
+        loss_rec = torch.sum(torch.pow(Y - Y_rec, 2)) # (1) 
 
         loss = (1.0 - self.theta_val)*loss_rec + self.theta_val*loss_kl
 

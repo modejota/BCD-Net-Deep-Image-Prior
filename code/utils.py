@@ -35,6 +35,12 @@ def direct_deconvolution(Y, M):
         M: color matrix tensor / numpy array. Shape: (batch_size, 3, 2)
     """
 
+    squeeze_at_end = False
+    if len(Y.shape) == 3:
+        Y = Y.unsqueeze(0)
+        M = M.unsqueeze(0)
+        squeeze_at_end = True
+
     batch_size, _, H, W = Y.shape
 
     if isinstance(Y, np.ndarray):
@@ -47,6 +53,9 @@ def direct_deconvolution(Y, M):
         M = M.view(batch_size, 3, 2) # (batch_size, 3, 2)
         C = torch.linalg.lstsq(M, Y).solution # (batch_size, 2, H*W)
         C = C.view(batch_size, 2, H, W) # (batch_size, 2, H, W)
+
+    if squeeze_at_end:
+        C = C.squeeze(0)    
     return C
 
 

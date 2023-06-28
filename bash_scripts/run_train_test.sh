@@ -24,9 +24,9 @@ then
     num_workers=32
     batch_size=64
 
-    num_epochs=30
+    num_epochs=25
     num_runs=1
-    theta_val_array=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0)
+    theta_val_array=(0.0 0.1 0.2 0.3 0.4 0.5)
 
     for ((i=1; i<=$num_runs; i++))
     do
@@ -42,9 +42,9 @@ then
     num_workers=24
     batch_size=64
 
-    num_epochs=50
+    num_epochs=25
     num_runs=1
-    theta_val_array=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0)
+    theta_val_array=(0.6 0.7 0.8 0.9 1.0)
 
     for ((i=1; i<=$num_runs; i++))
     do
