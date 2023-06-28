@@ -18,11 +18,11 @@ torch.backends.cudnn.enabled = True
 torch.backends.cudnn.benchmark = True
 torch.autograd.set_detect_anomaly(True)
 
-#TRAIN_CENTERS = [0,2,4]
-#VAL_CENTERS = [1,3]
+TRAIN_CENTERS = [0,2,4]
+VAL_CENTERS = [1,3]
 
-TRAIN_CENTERS = [0]
-VAL_CENTERS = [1]
+#TRAIN_CENTERS = [0]
+#VAL_CENTERS = [1]
 
 def build_model(args):
     return BCDnet(args.cnet_name, args.mnet_name)
@@ -41,8 +41,8 @@ def train(args):
 
     n_samples_val = int(args.val_prop * args.n_samples)
     n_samples_train = args.n_samples - n_samples_val
-    train_dataset = CamelyonDataset(args.camelyon_data_path, TRAIN_CENTERS, patch_size=args.patch_size, n_samples=n_samples_train)
-    val_dataset = CamelyonDataset(args.camelyon_data_path, VAL_CENTERS, patch_size=args.patch_size, n_samples=n_samples_val)
+    train_dataset = CamelyonDataset(args.camelyon_data_path, TRAIN_CENTERS, patch_size=args.patch_size, n_samples=n_samples_train, load_at_init=args.load_at_init)
+    val_dataset = CamelyonDataset(args.camelyon_data_path, VAL_CENTERS, patch_size=args.patch_size, n_samples=n_samples_val, load_at_init=args.load_at_init)
     train_dataloader = torch.utils.data.DataLoader(train_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, sampler=None)
     val_dataloader = torch.utils.data.DataLoader(val_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers, sampler=None)
 
@@ -76,10 +76,10 @@ def train(args):
 def test(args):
     wssb_dataloader_dic = {}
     for organ in ['Lung', 'Breast', 'Colon']:
-        wssb_dataset = WSSBDatasetTest(args.wssb_data_path, organ_list=[organ])
+        wssb_dataset = WSSBDatasetTest(args.wssb_data_path, organ_list=[organ], load_at_init=False)
         wssb_dataloader_dic[organ] = torch.utils.data.DataLoader(wssb_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers)
 
-    cam_dataset = CamelyonDataset(args.camelyon_data_path, VAL_CENTERS, patch_size=args.patch_size, n_samples=int(args.val_prop * args.n_samples))
+    cam_dataset = CamelyonDataset(args.camelyon_data_path, VAL_CENTERS, patch_size=args.patch_size, n_samples=int(args.val_prop * args.n_samples), load_at_init=False)
     cam_dataloader = torch.utils.data.DataLoader(cam_dataset, batch_size=1, shuffle=False, num_workers=args.num_workers)
 
 

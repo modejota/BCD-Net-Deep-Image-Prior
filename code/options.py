@@ -6,6 +6,7 @@ def set_opts():
 
     parser.add_argument('--mode', default='train', type=str, help="Mode to run the code (train/test)")
     parser.add_argument('--use_wandb', action='store_true', help="Use wandb or not")
+    parser.add_argument('--load_at_init', action='store_true', help="Load files at init")
 
     parser.add_argument(
                         '--camelyon_data_path', default='/data/datasets/Camelyon/Camelyon17/training/patches_224/', 
@@ -28,7 +29,7 @@ def set_opts():
     # trainning settings
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of each data sample")
-    parser.add_argument('--val_prop', type=float, default=0.1, help="Proportion of validation data")
+    parser.add_argument('--val_prop', type=float, default=0.2, help="Proportion of validation data")
     parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs")
     parser.add_argument('--pretraining_epochs', type=int, default=1, help="Number of pretraining epochs")
     parser.add_argument('--n_samples', type=int, default=60000, help="Number of samples to use for training")

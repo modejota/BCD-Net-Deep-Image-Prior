@@ -24,7 +24,7 @@ then
     num_workers=32
     batch_size=64
 
-    num_epochs=50
+    num_epochs=30
     num_runs=1
     theta_val_array=(0.0 0.1 0.2 0.3 0.4 0.5 0.6 0.7 0.8 0.9 1.0)
 

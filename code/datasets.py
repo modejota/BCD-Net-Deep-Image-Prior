@@ -3,9 +3,10 @@ import glob
 import cv2
 import random
 import os
-
 import numpy as np
 
+
+from tqdm import tqdm
 from scipy.io import loadmat
 
 def random_crop(self, img, patch_size):
@@ -22,13 +23,18 @@ def random_crop(self, img, patch_size):
 
 class CamelyonDataset(torch.utils.data.Dataset):
 
-    def __init__(self, data_path, centers, patch_size=224, n_samples=None):
+    def __init__(self, data_path, centers, patch_size=224, n_samples=None, load_at_init=True):
         super().__init__()
         self.data_path = data_path
         self.centers = centers
         self.patch_size = patch_size
         self.n_samples = n_samples
+        self.load_at_init = load_at_init
         self.image_files = self.scan_files()
+        if self.load_at_init:
+            self.images = self.load_files()
+        else:
+            self.images = None
 
     def scan_files(self):
 
@@ -65,29 +71,49 @@ class CamelyonDataset(torch.utils.data.Dataset):
         print('[CamelyonDataset] Done scanning files')
 
         return patches_ids
+    
+    def load_files(self):
+        print('[CamelyonDataset] Loading images...')
+        images = []
+        for idx in tqdm(range(len(self.image_files))):
+            img = self.load_file(idx)
+            images.append(img)
+        print('[CamelyonDataset] Done loading images')
+        return images
+
+    def load_file(self, idx):
+        file = self.image_files[idx]
+        img = cv2.imread(file)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
+            img = random_crop(img, self.patch_size)
+        img = img.transpose(2,0,1).astype(np.float32)
+        return img
         
     def __len__(self):
         return len(self.image_files)
 
     def __getitem__(self, idx):
-        file = self.image_files[idx]
-        img = cv2.imread(file)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
 
-        if self.patch_size is not None:
-            if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
-                img = random_crop(img, self.patch_size)
-        
-        img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
+        if self.load_at_init:
+            img = self.images[idx]
+        else:
+            img = self.load_file(idx)
+        img = torch.from_numpy(img)
         return img
 
 class WSSBDatasetTest(torch.utils.data.Dataset):
 
-    def __init__(self, data_path, organ_list=['Lung', 'Breast', 'Colon']):
+    def __init__(self, data_path, organ_list=['Lung', 'Breast', 'Colon'], load_at_init=True):
         self.data_path = data_path
         self.patch_size = np.Inf
         self.organ_list = organ_list
+        self.load_at_init = load_at_init
         self.image_files, self.sv_files = self.scan_files()
+        if self.load_at_init:
+            self.images, self.M_gts = self.load_files()
+        else:
+            self.images, self.M_gts = None, None
 
     def scan_files(self):
         print('[WSSBDataset] Scanning files...')
@@ -104,19 +130,42 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         print('[WSSBDataset] Done scanning files')
         return patches_ids, sv_ids
     
+    def load_files(self):
+        print('[WSSBDataset] Loading files...')
+        images = []
+        M_gts = []
+        for idx in tqdm(range(len(self.image_files))):
+            img, M_gt = self.load_file(idx)
+            images.append(img)
+            M_gts.append(M_gt)
+        print('[WSSBDataset] Done loading files')
+        return images, M_gts
+
+    def load_file(self, idx):
+        file = self.image_files[idx]
+        img = cv2.imread(file)
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
+            img = random_crop(img, self.patch_size)
+        img = img.transpose(2,0,1).astype(np.float32)
+
+        sv_file = self.sv_files[idx]
+        M_gt = loadmat(sv_file)['Stains'].astype(np.float32)
+
+        return img, M_gt
+    
     def __len__(self):
         return len(self.image_files)
 
     def __getitem__(self, idx):
 
-        img_file = self.image_files[idx]
-        img = cv2.imread(img_file)
-        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-        if (self.patch_size < img.shape[0]) or (self.patch_size < img.shape[1]):
-            img = random_crop(img, self.patch_size)
-        img = torch.from_numpy(img.copy().transpose(2,0,1).astype(np.float32))
-
-        sv_file = self.sv_files[idx]
-        M_gt = torch.from_numpy(loadmat(sv_file)['Stains'].astype(np.float32))
+        if self.load_at_init:
+            img = self.images[idx]
+            M_gt = self.M_gts[idx]
+        else:
+            img, M_gt = self.load_file(idx)
+        
+        img = torch.from_numpy(img)
+        M_gt = torch.from_numpy(M_gt)
 
         return img, M_gt
