@@ -7,8 +7,9 @@ def custom_list(string):
 def set_opts():
     parser = argparse.ArgumentParser()
 
-    parser.add_argument('--mode', default='train', type=str, help="Mode to run the code (train/test)")
+    parser.add_argument('--mode', default='train', type=str, help="Mode to run the code (train/train_test)")
     parser.add_argument('--use_wandb', action='store_true', help="Use wandb or not")
+    parser.add_argument('--wandb_project', default='DVBCD', type=str, help="Wandb project name")
     parser.add_argument('--load_at_init', action='store_true', help="Load files at init")
 
     parser.add_argument(
@@ -24,9 +25,8 @@ def set_opts():
 
     parser.add_argument('--num_workers', default=16, type=int, help="Number of workers to load data")
 
-
     # model settings
-    parser.add_argument('--cnet_name', type=str, default='unet_64_3', help='CNet model name')
+    parser.add_argument('--cnet_name', type=str, default='unet_64_6', help='CNet model name')
     parser.add_argument('--mnet_name', type=str, default='mobilenetv3s_50', help='MNet model name')
 
     # trainning settings
@@ -48,7 +48,7 @@ def set_opts():
     # hyper-parameters
     parser.add_argument('--sigma_rui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M")
     parser.add_argument('--theta_val', default=0.5, type=float, help="theta parameter to balance the loss function")
-    parser.add_argument('--theta_pretrain', default=0.99, type=float, help="theta parameter to balance the loss function during pretraining")
+    parser.add_argument('--pretrain_theta_val', default=0.99, type=float, help="theta parameter to balance the loss function during pretraining")
 
 
     args = parser.parse_args()

@@ -26,7 +26,7 @@ then
 
     num_epochs=25
     num_runs=1
-    theta_val_array=(0.0 0.1 0.2 0.3 0.4 0.5)
+    theta_val_array=(0.3 0.4)
 
     for ((i=1; i<=$num_runs; i++))
     do

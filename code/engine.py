@@ -270,7 +270,3 @@ class Trainer:
     
     def get_best_model(self):
         return self.best_model
-
-    def update_theta(self, new_theta):
-        self.theta_val = new_theta
-        self.criterion = LossBCD(sigma_rui_sq=self.sigma_rui_sq, theta_val=self.theta_val)

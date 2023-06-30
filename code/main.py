@@ -44,12 +44,13 @@ def train(args):
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     if args.lr_decay < 1.0:
         lr_sch = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=args.lr_decay, patience=args.early_stop_patience//3, verbose=True)
-    trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.theta_val, logger=logger)
+    
     if args.pretraining_epochs > 0:
         print('Pretraining...')
-        trainer.update_theta(args.theta_pretrain)
+        trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.pretrain_theta_val, logger=logger)
         trainer.train(args.pretraining_epochs, train_dataloader, val_dataloader)
-        trainer.update_theta(args.theta_val)
+        model = trainer.get_best_model()
+    trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.theta_val, logger=logger)
     
     print('Training...')
     trainer.train(args.epochs, train_dataloader, val_dataloader)
@@ -109,10 +110,10 @@ def main():
         print('{:<25s}: {:s}'.format(arg, str(getattr(args, arg))))
     
     if args.use_wandb:
-        wandb.init(project="DVBCD", config=args)
+        wandb.init(project=args.wandb_project, config=args)
         args.weights_path = wandb.run.dir + '/weights/best.pt'
     else:
-        run_name = f"{args.cnet_name}_{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigma_rui_sq}sigmarui_{args.n_samples}nsamples"
+        run_name = f"{args.cnet_name}_{args.mnet_name}_{args.pretraining_epochs}pe_{args.patch_size}ps_{args.theta_val}theta_{args.sigma_rui_sq}sigmarui_{args.n_samples_train}nsamples"
         args.weights_path = args.weights_dir + f'/{run_name}/best.pt'
         args.history_path = os.path.join(args.history_dir, f"{run_name}.csv")
 
@@ -120,8 +121,6 @@ def main():
 
     if args.mode == 'train':   
         train(args)
-    elif args.mode == 'test':
-        test(args)
     elif args.mode == 'train_test':
         train(args)
         test(args)

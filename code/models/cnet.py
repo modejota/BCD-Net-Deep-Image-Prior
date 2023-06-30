@@ -83,9 +83,9 @@ class Cnet(torch.nn.Module):
         self.skip_conv4 = torch.nn.Conv2d(nc, nc, kernel_size=3, stride=1, padding=1)
 
         self.final_conv = torch.nn.Sequential(*[
-            torch.nn.Conv2d(nc, nc//2, kernel_size=3, stride=1, padding=1),
+            torch.nn.Conv2d(nc, nc//4, kernel_size=3, stride=1, padding=1),
             torch.nn.LeakyReLU(0.2, True),
-            torch.nn.Conv2d(nc//2, out_nc, kernel_size=3, stride=1, padding=1), 
+            torch.nn.Conv2d(nc//4, out_nc, kernel_size=3, stride=1, padding=1), 
         ])
 
     def forward(self, x):
