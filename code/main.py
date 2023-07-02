@@ -43,11 +43,11 @@ def train(args):
         model = torch.nn.DataParallel(model)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
     if args.lr_decay < 1.0:
-        lr_sch = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=args.lr_decay, patience=args.early_stop_patience//3, verbose=True)
+        lr_sch = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=args.lr_decay, patience=args.early_stop_patience//3, verbose=True)
     
     if args.pretraining_epochs > 0:
         print('Pretraining...')
-        trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.pretrain_theta_val, logger=logger)
+        trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.pretrain_theta_val)
         trainer.train(args.pretraining_epochs, train_dataloader, val_dataloader)
         model = trainer.get_best_model()
     trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.theta_val, logger=logger)

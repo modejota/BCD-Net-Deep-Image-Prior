@@ -29,12 +29,14 @@ class LossBCD(torch.nn.Module):
         M_ruifrok = self.M_ruifrok.repeat(batch_size, 1, 1).to(Y.device) # (batch_size, 3, 2)
         M_var = M_var.repeat(1, 3, 1) # (batch_size, 3, 2)
 
-        loss_kl = (0.5 / self.sigma_rui_sq) * torch.pow( M_mean - M_ruifrok , 2) + 1.5 * ( M_var / self.sigma_rui_sq - torch.log(M_var / self.sigma_rui_sq)) # (batch_size, 3, 2)
-        loss_kl = torch.sum(loss_kl) # (1)
+        loss_kl = (0.5 / self.sigma_rui_sq) * torch.pow( M_mean - M_ruifrok , 2) + 1.5 * ( M_var / self.sigma_rui_sq - torch.log(M_var / self.sigma_rui_sq) - 1) # (batch_size, 3, 2)
+        loss_kl = torch.sum(loss_kl) / batch_size # (1)
 
-        Y_rec = torch.einsum('bcs,bshw->bchw', M_mean, C_mean) # (batch_size, 3, H, W)
+        M_sample = M_mean + torch.sqrt(M_var) * torch.randn_like(M_mean) # (batch_size, 3, 2)
 
-        loss_rec = torch.sum(torch.pow(Y - Y_rec, 2)) # (1) 
+        Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_mean) # (batch_size, 3, H, W)
+
+        loss_rec = torch.sum(torch.pow(Y - Y_rec, 2)) / batch_size # (1) 
 
         loss = (1.0 - self.theta_val)*loss_rec + self.theta_val*loss_kl
 
@@ -168,7 +170,7 @@ class Trainer:
         self.criterion = LossBCD(sigma_rui_sq=self.sigma_rui_sq, theta_val=self.theta_val)
 
         self.best_model = None
-        self.best_loss = np.inf
+        self.best_metric = -np.inf
         self.model = self.model.to(self.device)
     
     def train(self, max_epochs, train_dataloader, val_dataloader=None):
@@ -180,7 +182,7 @@ class Trainer:
             self.model.to('cpu')
             self.best_model = copy.deepcopy(self.model).to('cpu')
             self.model.to(self.device)
-            self.best_loss = np.inf
+            self.best_metric = -np.inf
         early_stop_count = 0
         for epoch in range(1, max_epochs+1):
 
@@ -188,26 +190,32 @@ class Trainer:
             self.model.train()
             pbar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
             pbar.set_description(f"Epoch {epoch} - Train")
+            sum_psnr_rec = 0.0
             sum_loss = 0.0
             sum_loss_kl = 0.0
             sum_loss_rec = 0.0
             for batch_idx, batch in pbar:
-                Y = batch # Y: (batch_size, 3, H, W)
-                batch_size = Y.shape[0]
-                Y = rgb2od(Y).to(self.device)
+                Y_rgb = batch # (batch_size, 3, H, W)
+                batch_size = Y_rgb.shape[0]
+                Y_rgb = Y_rgb.to(self.device)
+                Y_od = rgb2od(Y_rgb)
 
                 self.optimizer.zero_grad()
 
-                M_mean, M_var, C_mean = self.model(Y)
-                loss, loss_rec, loss_kl = self.criterion(Y, M_mean, M_var, C_mean)
+                M_mean, M_var, C_mean = self.model(Y_od) # M_mean: (batch_size, 3, 2), M_var: (batch_size, 1, 2), C_mean: (batch_size, 2, H, W)
+                loss, loss_rec, loss_kl = self.criterion(Y_od, M_mean, M_var, C_mean)
                 loss.backward()
                 self.optimizer.step()
 
-                sum_loss += loss.item() / batch_size
-                sum_loss_kl += loss_kl.item() / batch_size
-                sum_loss_rec += loss_rec.item() / batch_size
+                sum_loss += loss.item()
+                sum_loss_kl += loss_kl.item()
+                sum_loss_rec += loss_rec.item()
+
+                Y_rec_rgb = torch.clamp(od2rgb(torch.einsum('bcs,bshw->bchw', M_mean, C_mean).detach()), 0.0, 255.0) # (batch_size, 3, H, W)
+                sum_psnr_rec += torch.mean(peak_signal_noise_ratio(Y_rec_rgb, Y_rgb)).item()
 
                 train_metrics = {
+                    'train/psnr_rec' : sum_psnr_rec / (batch_idx + 1),
                     'train/loss' : sum_loss / (batch_idx + 1),
                     'train/loss_kl' : sum_loss_kl / (batch_idx + 1),
                     'train/loss_rec' : sum_loss_rec / (batch_idx + 1)
@@ -223,22 +231,28 @@ class Trainer:
             self.model.eval()
             pbar = tqdm(enumerate(val_dataloader), total=len(val_dataloader))
             pbar.set_description(f"Epoch {epoch} - Validation")
+            sum_psnr_rec = 0.0
             sum_loss = 0.0
             sum_loss_kl = 0.0
             sum_loss_rec = 0.0
             with torch.no_grad():
                 for batch_idx, batch in pbar:
-                    Y = batch # Y: (batch_size, 3, H, W)
-                    Y = rgb2od(Y).to(self.device)
+                    Y_rgb = batch # (batch_size, 3, H, W)
+                    Y_rgb = Y_rgb.to(self.device)
+                    Y_od = rgb2od(Y_rgb)
 
-                    M_mean, M_var, C_mean = self.model(Y)
-                    loss, loss_rec, loss_kl = self.criterion(Y, M_mean, M_var, C_mean)
+                    M_mean, M_var, C_mean = self.model(Y_od)
+                    loss, loss_rec, loss_kl = self.criterion(Y_od, M_mean, M_var, C_mean)
 
-                    sum_loss += loss.item() / batch_size
-                    sum_loss_kl += loss_kl.item() / batch_size
-                    sum_loss_rec += loss_rec.item() / batch_size
+                    sum_loss += loss.item()
+                    sum_loss_kl += loss_kl.item()
+                    sum_loss_rec += loss_rec.item()
+
+                    Y_rec_rgb = torch.clamp(od2rgb(torch.einsum('bcs,bshw->bchw', M_mean, C_mean).detach()), 0.0, 255.0) # (batch_size, 3, H, W)
+                    sum_psnr_rec += torch.mean(peak_signal_noise_ratio(Y_rec_rgb, Y_rgb)).item()
 
                     val_metrics = {
+                            'val/psnr_rec' : sum_psnr_rec / (batch_idx + 1),
                             'val/loss' : sum_loss / (batch_idx + 1),
                             'val/loss_kl' : sum_loss_kl / (batch_idx + 1),
                             'val/loss_rec' : sum_loss_rec / (batch_idx + 1)
@@ -249,13 +263,13 @@ class Trainer:
                             self.logger.log(val_metrics)
                 
             if self.lr_sch is not None:
-                self.lr_sch.step(val_metrics['val/loss'])
+                self.lr_sch.step(val_metrics['val/psnr_rec'])
 
-            if val_metrics['val/loss'] >= self.best_loss:
+            if val_metrics['val/psnr_rec'] <= self.best_metric:
                 early_stop_count += 1
                 print(f'Early stopping count: {early_stop_count}')
             else:
-                self.best_loss = val_metrics['val/loss']
+                self.best_metric = val_metrics['val/psnr_rec']
                 del self.best_model
                 self.model.to('cpu')
                 self.best_model = copy.deepcopy(self.model).to('cpu')

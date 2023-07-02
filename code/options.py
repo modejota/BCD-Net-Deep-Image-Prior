@@ -36,7 +36,7 @@ def set_opts():
     parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs")
     parser.add_argument('--pretraining_epochs', type=int, default=1, help="Number of pretraining epochs")
     parser.add_argument('--n_samples_train', type=int, default=60000, help="Number of samples to use for training")
-    parser.add_argument('--n_samples_val', type=int, default=15000, help="Number of samples to use for validation")
+    parser.add_argument('--n_samples_val', type=int, default=8000, help="Number of samples to use for validation")
     parser.add_argument('--train_centers', type=custom_list, default='0,2,4', help="Centers to use for training")
     parser.add_argument('--val_centers', type=custom_list, default='1,3', help="Centers to use for validation")
 

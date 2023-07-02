@@ -14,19 +14,16 @@ then
     exit
 fi
 
-rm -f output/salida_{$SERVER}_train*
-rm -f output/salida_{$SERVER}_test*
-
 if [[ "$SERVER" == dodona ]]
 then
     echo "Running on dodona"
-    export CUDA_VISIBLE_DEVICES=0,1
-    num_workers=32
-    batch_size=64
+    export CUDA_VISIBLE_DEVICES=0,1,2,3
+    num_workers=24
+    batch_size=128
 
-    num_epochs=25
+    num_epochs=50
     num_runs=1
-    theta_val_array=(0.3 0.4)
+    theta_val_array=(0.2 0.3 0.4 0.5 0.6 0.7 0.8)
 
     for ((i=1; i<=$num_runs; i++))
     do
