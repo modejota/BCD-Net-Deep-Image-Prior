@@ -23,13 +23,13 @@ then
 
     num_epochs=50
     num_runs=1
-    theta_val_array=(0.2 0.3 0.4 0.5 0.6 0.7 0.8)
+    theta_val_array=(0.3)
 
     for ((i=1; i<=$num_runs; i++))
     do
         for theta in "${theta_val_array[@]}"
         do
-            python code/main.py --use_wandb --mode=train_test --epochs=$num_epochs --batch_size=$batch_size --num_workers=$num_workers --theta_val=$theta > output/salida_${SERVER}_train_${BASHPID}.txt 2>&1
+            python code/main.py --use_wandb --mode=train_test --epochs=$num_epochs --batch_size=$batch_size --num_workers=$num_workers --theta_val=$theta --pretrain_epochs=3 --pretrain_theta_val=1.0 --lr=0.0001 > output/salida_${SERVER}_train_${BASHPID}.txt 2>&1
         done
     done
 elif [[ "$SERVER" == delfos ]]

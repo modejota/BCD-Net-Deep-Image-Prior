@@ -27,16 +27,16 @@ class LossBCD(torch.nn.Module):
 
         batch_size = Y.shape[0]
         M_ruifrok = self.M_ruifrok.repeat(batch_size, 1, 1).to(Y.device) # (batch_size, 3, 2)
-        M_var = M_var.repeat(1, 3, 1) # (batch_size, 3, 2)
+        M_var = M_var.repeat(1, 3, 1) # (batch_size, 3, 2)        
 
-        loss_kl = (0.5 / self.sigma_rui_sq) * torch.pow( M_mean - M_ruifrok , 2) + 1.5 * ( M_var / self.sigma_rui_sq - torch.log(M_var / self.sigma_rui_sq) - 1) # (batch_size, 3, 2)
+        loss_kl = (0.5 / self.sigma_rui_sq) * torch.nn.functional.mse_loss(M_mean, M_ruifrok, reduction='none') + 1.5 * ( M_var / self.sigma_rui_sq - torch.log(M_var / self.sigma_rui_sq) - 1) # (batch_size, 3, 2)
         loss_kl = torch.sum(loss_kl) / batch_size # (1)
 
         M_sample = M_mean + torch.sqrt(M_var) * torch.randn_like(M_mean) # (batch_size, 3, 2)
 
         Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_mean) # (batch_size, 3, H, W)
 
-        loss_rec = torch.sum(torch.pow(Y - Y_rec, 2)) / batch_size # (1) 
+        loss_rec = torch.sum(torch.nn.functional.mse_loss(Y, Y_rec, reduction='none')) / batch_size # (1) 
 
         loss = (1.0 - self.theta_val)*loss_rec + self.theta_val*loss_kl
 
@@ -154,7 +154,7 @@ def evaluate(model, dataloader, sigma_rui_sq=0.05, theta_val=0.5, device='cuda')
     return metrics_dict
 
 class Trainer:
-    def __init__(self, model, optimizer, device='cuda', early_stop_patience=10, lr_sch=None, sigma_rui_sq=0.05, theta_val=0.5, logger=None):
+    def __init__(self, model, optimizer, device='cuda', early_stop_patience=10, lr_sch=None, sigma_rui_sq=0.05, theta_val=0.5, clip_grad=None, logger=None):
         self.model = model
         self.optimizer = optimizer
         self.device = device
@@ -167,11 +167,69 @@ class Trainer:
 
         self.sigma_rui_sq = sigma_rui_sq
         self.theta_val = theta_val
+        self.clip_grad = clip_grad
+
         self.criterion = LossBCD(sigma_rui_sq=self.sigma_rui_sq, theta_val=self.theta_val)
 
         self.best_model = None
-        self.best_metric = -np.inf
+        self.best_metric = None
         self.model = self.model.to(self.device)
+        self.criterion = self.criterion.to(self.device)
+    
+    def pretrain(self, max_epochs, train_dataloader, pretrain_theta_val=0.99):
+
+        dif = self.theta_val - pretrain_theta_val
+        self.model = self.model.to(self.device)
+        self.criterion = self.criterion.to(self.device)
+        self.model.train()
+        for epoch in range(1, max_epochs+1):
+            theta = pretrain_theta_val + (epoch-1) * dif / max_epochs
+            self.criterion.theta_val = theta
+
+            # Train loop
+            self.model.train()
+            pbar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
+            pbar.set_description(f"Pretrain - Epoch {epoch}, theta: {theta:.4f}")
+            sum_loss = 0.0
+            sum_loss_kl = 0.0
+            sum_loss_rec = 0.0
+            sum_psnr_rec = 0.0
+            for batch_idx, batch in pbar:
+                Y_rgb = batch # (batch_size, 3, H, W)
+                batch_size = Y_rgb.shape[0]
+                Y_rgb = Y_rgb.to(self.device)
+                Y_od = rgb2od(Y_rgb)
+
+                self.optimizer.zero_grad()
+                M_mean, M_var, C_mean = self.model(Y_od) # M_mean: (batch_size, 3, 2), M_var: (batch_size, 3, 2), C_mean: (batch_size, 2, H, W)
+                loss, loss_rec, loss_kl = self.criterion(Y_od, M_mean, M_var, C_mean)
+                loss.backward()
+                if self.clip_grad is not None:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
+                self.optimizer.step()
+
+                sum_loss += loss.item()
+                sum_loss_kl += loss_kl.item()
+                sum_loss_rec += loss_rec.item()
+
+                Y_rec_rgb = torch.clamp(od2rgb(torch.einsum('bcs,bshw->bchw', M_mean, C_mean).detach()), 0.0, 255.0) # (batch_size, 3, H, W)
+                sum_psnr_rec += torch.mean(peak_signal_noise_ratio(Y_rec_rgb, Y_rgb)).item()
+
+                train_metrics = {
+                    'pretrain/psnr_rec' : sum_psnr_rec / (batch_idx + 1),
+                    'pretrain/loss' : sum_loss / (batch_idx + 1),
+                    'pretrain/loss_kl' : sum_loss_kl / (batch_idx + 1),
+                    'pretrain/loss_rec' : sum_loss_rec / (batch_idx + 1)
+                }
+                pbar.set_postfix(train_metrics)
+
+                if batch_idx == (len(train_dataloader) - 1):
+                    if self.logger is not None:
+                        self.logger.log(train_metrics)
+            pbar.close()
+        
+        self.criterion.theta_val = self.theta_val
+        self.best_model = self.copy_model()
     
     def train(self, max_epochs, train_dataloader, val_dataloader=None):
 
@@ -179,17 +237,16 @@ class Trainer:
             val_dataloader = train_dataloader
         
         if self.best_model is None:
-            self.model.to('cpu')
-            self.best_model = copy.deepcopy(self.model).to('cpu')
-            self.model.to(self.device)
+            self.best_model = self.copy_model()
+        if self.best_metric is None:
             self.best_metric = -np.inf
         early_stop_count = 0
+        self.model = self.model.to(self.device)
         for epoch in range(1, max_epochs+1):
-
             # Train loop
             self.model.train()
             pbar = tqdm(enumerate(train_dataloader), total=len(train_dataloader))
-            pbar.set_description(f"Epoch {epoch} - Train")
+            pbar.set_description(f"Train - Epoch {epoch} ")
             sum_psnr_rec = 0.0
             sum_loss = 0.0
             sum_loss_kl = 0.0
@@ -205,6 +262,8 @@ class Trainer:
                 M_mean, M_var, C_mean = self.model(Y_od) # M_mean: (batch_size, 3, 2), M_var: (batch_size, 1, 2), C_mean: (batch_size, 2, H, W)
                 loss, loss_rec, loss_kl = self.criterion(Y_od, M_mean, M_var, C_mean)
                 loss.backward()
+                if self.clip_grad is not None:
+                    torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.clip_grad)
                 self.optimizer.step()
 
                 sum_loss += loss.item()
@@ -230,7 +289,7 @@ class Trainer:
             # Validation loop
             self.model.eval()
             pbar = tqdm(enumerate(val_dataloader), total=len(val_dataloader))
-            pbar.set_description(f"Epoch {epoch} - Validation")
+            pbar.set_description(f"Validation - Epoch {epoch}")
             sum_psnr_rec = 0.0
             sum_loss = 0.0
             sum_loss_kl = 0.0
@@ -271,9 +330,7 @@ class Trainer:
             else:
                 self.best_metric = val_metrics['val/psnr_rec']
                 del self.best_model
-                self.model.to('cpu')
-                self.best_model = copy.deepcopy(self.model).to('cpu')
-                self.model.to(self.device)
+                self.best_model = self.copy_model()
                 early_stop_count = 0
                 
             if early_stop_count >= self.early_stop_patience:
@@ -281,6 +338,11 @@ class Trainer:
                 break
 
             pbar.close()
+    
+    def copy_model(self):
+        model_copy = copy.deepcopy(self.model.to('cpu')).to('cpu')
+        self.model = self.model.to(self.device)
+        return model_copy
     
     def get_best_model(self):
         return self.best_model

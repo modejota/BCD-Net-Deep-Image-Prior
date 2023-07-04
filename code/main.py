@@ -45,12 +45,14 @@ def train(args):
     if args.lr_decay < 1.0:
         lr_sch = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='max', factor=args.lr_decay, patience=args.early_stop_patience//3, verbose=True)
     
-    if args.pretraining_epochs > 0:
+    trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.theta_val, clip_grad=args.clip_grad, logger=logger)
+
+
+    if args.pretrain_epochs > 0:
+        pretrain_dataset = CamelyonDataset(args.camelyon_data_path, args.train_centers, patch_size=args.patch_size, n_samples=args.n_samples_train//args.pretrain_epochs, load_at_init=args.load_at_init)
+        pretrain_dataloader = torch.utils.data.DataLoader(pretrain_dataset, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, sampler=None)
         print('Pretraining...')
-        trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.pretrain_theta_val)
-        trainer.train(args.pretraining_epochs, train_dataloader, val_dataloader)
-        model = trainer.get_best_model()
-    trainer = Trainer(model, optimizer, args.device, early_stop_patience=args.early_stop_patience, lr_sch=lr_sch, sigma_rui_sq=args.sigma_rui_sq, theta_val=args.theta_val, logger=logger)
+        trainer.pretrain(args.pretrain_epochs, pretrain_dataloader, args.pretrain_theta_val)
     
     print('Training...')
     trainer.train(args.epochs, train_dataloader, val_dataloader)

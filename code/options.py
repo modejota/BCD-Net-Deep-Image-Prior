@@ -32,9 +32,8 @@ def set_opts():
     # trainning settings
     parser.add_argument('--batch_size', type=int, default=64, help="Batch size")
     parser.add_argument('--patch_size', type=int, default=224, help="Patch size of each data sample")
-    parser.add_argument('--val_prop', type=float, default=0.2, help="Proportion of validation data")
     parser.add_argument('--epochs', type=int, default=100, help="Number of training epochs")
-    parser.add_argument('--pretraining_epochs', type=int, default=1, help="Number of pretraining epochs")
+    parser.add_argument('--pretrain_epochs', type=int, default=1, help="Number of pretraining epochs")
     parser.add_argument('--n_samples_train', type=int, default=60000, help="Number of samples to use for training")
     parser.add_argument('--n_samples_val', type=int, default=8000, help="Number of samples to use for validation")
     parser.add_argument('--train_centers', type=custom_list, default='0,2,4', help="Centers to use for training")
@@ -44,6 +43,7 @@ def set_opts():
     parser.add_argument('--lr', type=float, default=1e-4, help="Initial learning rate")
     parser.add_argument('--lr_decay', type=float, default=0.5, help="Decaying rate for the learning rate")
     parser.add_argument('--early_stop_patience', type=int, default=10, help="Early Stopping patience")
+    parser.add_argument('--clip_grad', type=float, default=1e5, help="Value to clip the gradients")
 
     # hyper-parameters
     parser.add_argument('--sigma_rui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M")

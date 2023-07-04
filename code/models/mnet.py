@@ -22,7 +22,7 @@ def get_model(net_name, hidden_dim=50):
         num_feat = model.fc.in_features
         model.fc = torch.nn.Linear(num_feat, hidden_dim)
     elif net_name == "mobilenetv3s":
-        model = torchvision.models.mobilenet_v3_small(weights=None)
+        model = torchvision.models.mobilenet_v3_small(weights=torchvision.models.MobileNet_V3_Small_Weights.IMAGENET1K_V1)
         model.classifier = torch.nn.Linear(576, hidden_dim)
     elif net_name == "mobilenetv3sft":
         model = torchvision.models.mobilenet_v3_small(weights=torchvision.models.MobileNet_V3_Small_Weights.IMAGENET1K_V1)
