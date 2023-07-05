@@ -164,4 +164,4 @@ dependencies:
     - widgetsnbextension==4.0.3
     - yarl==1.8.1
     - zipp==3.8.1
-prefix: /home/fran/anaconda3/envs/DVBCD
+prefix: /home/modej/anaconda3/envs/DVBCD
