@@ -1,4 +1,4 @@
-name: DVBCD
+name: BCD-TFM
 channels:
   - pytorch
   - conda-forge
