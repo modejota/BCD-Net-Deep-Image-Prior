@@ -1,5 +1,8 @@
+import sys
 import torch
 import numpy as np
+from tkinter import Tk, filedialog
+
 
 def rgb2od(rgb):
     """Converts RGB image to optical density (OD_RGB) image.
@@ -58,7 +61,6 @@ def direct_deconvolution(Y, M):
         C = C.squeeze(0)    
     return C
 
-
 def peak_signal_noise_ratio(A, B, max=255.0):
     """
     input: 
@@ -96,3 +98,42 @@ def structural_similarity(A, B):
     c2 = (0.03*data_range)**2
     ssim = (2 * mu_A * mu_B + c1) * (2 * cov_AB + c2) / ((mu_A**2 + mu_B**2 + c1) * (var_A + var_B + c2))
     return ssim
+
+def random_ruifrok_matrix_variation(std):
+    """
+    input:
+        std: standard deviation of the gaussian noise
+    return:
+        Hgauss: new distribution for H channel
+        Egauss: new distribution for E channel
+    """
+    M_Ruifrok=np.array([[0.644211  , 0.092789  , 0.63598099],
+                        [0.716556  , 0.954111  , 0.        ],
+                        [0.266844  , 0.283111  , 0.77170472]])
+    M_Ruifrok=M_Ruifrok[:,:3]   # Only H&E
+
+    Hgauss=np.abs(np.random.normal(loc=M_Ruifrok[:,0], scale=std)).reshape([3,1])
+    Egauss=np.abs(np.random.normal(loc=M_Ruifrok[:,1], scale=std)).reshape([3,1])
+
+    # Normalize to ensure norm=1 (abs is to avoid negative values)
+    Hgauss /= np.linalg.norm(Hgauss)
+    Egauss /= np.linalg.norm(Egauss)
+
+    return Hgauss, Egauss
+
+def askforimageviaGUI(initialdirectory="."):
+    Tk().withdraw()
+    try:
+        img = filedialog.askopenfilename(initialdir=initialdirectory, title="Seleccione fichero", filetypes=[
+            ("Image files", (".jpg", ".png", ".tif")),
+        ])
+    except(OSError, FileNotFoundError):
+        print(f'No se ha podido abrir el fichero seleccionado.')
+        sys.exit(100)
+    except Exception as error:
+        print(f'Ha ocurrido un error: <{error}>')
+        sys.exit(101)
+    if len(img) == 0 or img is None:
+        print(f'No se ha seleccionado ningún archivo.')
+        sys.exit(102)
+    return img
