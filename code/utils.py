@@ -77,26 +77,36 @@ def peak_signal_noise_ratio(A, B, max=255.0):
 
 def structural_similarity(A, B):
     """
-    input: 
+    Calculate Structural Similarity Index (SSIM) between two tensors.
+
+    Parameters:
         A: tensor of shape (N, C, H, W)
         B: tensor of shape (N, C, H, W)
-    return:
+
+    Returns:
         ssim: tensor of shape (N, )
     """
-    A = A.view(A.shape[0], -1) # (N, C*H*W)
-    B = B.view(B.shape[0], -1) # (N, C*H*W)
+    N, C, H, W = A.shape
+
+    A = A.reshape(N, -1)  # Reshape to (N, C*H*W)
+    B = B.reshape(N, -1)  
 
     data_range = 255.0
 
-    mu_A = torch.mean(A, dim=(1)) # (N, )
-    mu_B = torch.mean(B, dim=(1)) # (N, )
-    var_A = torch.var(A, dim=(1)) # (N, )
-    var_B = torch.var(B, dim=(1)) # (N, )
-    cov_AB = torch.mean((A - mu_A.view(-1, 1)) * (B - mu_B.view(-1, 1)), dim=(1)) # (N, )
-    
-    c1 = (0.01*data_range)**2
-    c2 = (0.03*data_range)**2
-    ssim = (2 * mu_A * mu_B + c1) * (2 * cov_AB + c2) / ((mu_A**2 + mu_B**2 + c1) * (var_A + var_B + c2))
+    mu_A = torch.mean(A, dim=1)  # Compute mean along (C*H*W) -> (N, )
+    mu_B = torch.mean(B, dim=1)  
+    var_A = torch.var(A, dim=1)  # Compute variance along (C*H*W) -> (N, )
+    var_B = torch.var(B, dim=1)  
+
+    # Compute covariance of A and B
+    cov_AB = torch.mean((A - mu_A.view(-1, 1)) * (B - mu_B.view(-1, 1)), dim=1)  # -> (N, )
+
+    c1 = (0.01 * data_range) ** 2
+    c2 = (0.03 * data_range) ** 2
+
+    # Compute SSIM index for each N
+    ssim = (2 * mu_A * mu_B + c1) * (2 * cov_AB + c2) / ((mu_A ** 2 + mu_B ** 2 + c1) * (var_A + var_B + c2))
+
     return ssim
 
 def random_ruifrok_matrix_variation(std):
