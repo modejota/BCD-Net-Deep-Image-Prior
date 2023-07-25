@@ -147,3 +147,5 @@ nohup.out
 *.mat
 
 wandb/*
+Alsubaie_500x500*
+sample_data
