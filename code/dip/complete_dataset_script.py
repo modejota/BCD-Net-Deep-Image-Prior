@@ -2,14 +2,14 @@ from options import set_opts
 args = set_opts()
 
 import os
+import sys
 os.environ['CUDA_DEVICE_ORDER']="PCI_BUS_ID"
 os.environ['CUDA_VISIBLE_DEVICES']=args.device[-1] if args.device != 'cpu' else ''
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import time
 import torch
 import numpy as np
-
-os.chdir("../")
 
 from models import Cnet, BCDnet
 from datasets import WSSBDatasetTest

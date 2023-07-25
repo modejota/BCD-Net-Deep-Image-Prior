@@ -1,6 +1,6 @@
 import argparse
 
-def set_ops():
+def set_opts():
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--device', type=str, choices=['cpu', 'cuda:0', 'cuda:1', 'cuda:2', 'cuda:3'], help="Device to use for training")
