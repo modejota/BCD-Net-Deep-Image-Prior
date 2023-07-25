@@ -141,7 +141,7 @@ if RUN_FROM_WEIGHTS:
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-for iteration in range (NUM_ITERATIONS):
+for iteration in range (1, NUM_ITERATIONS+1):
 
     start_time = time.time()
     optimizer.zero_grad()
@@ -185,7 +185,7 @@ for iteration in range (NUM_ITERATIONS):
 
     # Calculate general metrics and reconstruction metrics
     metrics_dict['time'] = ((time.time() - start_time) * 1000.0)  # Milliseconds
-    metrics_dict['epoch'] = iteration+1
+    metrics_dict['epoch'] = iteration
     metrics_dict['loss'] = loss.item()
     metrics_dict['mse_rec'] = torch.sum(torch.pow(reconstructed_od - rgb2od(original_tensor), 2)).item() / (3.0*H*W)
     metrics_dict['psnr_rec'] = torch.sum(peak_signal_noise_ratio(reconstructed, original_tensor)).item()
@@ -226,7 +226,7 @@ for iteration in range (NUM_ITERATIONS):
         data_row = ','.join(str(val) for val in metrics_dict.values()) + '\n'
         file.write(data_row)
 
-    if SAVE_MODEL_GENERATED_IMAGES and iteration % SAVE_IMAGES_FREQUENCY == 0:
+    if SAVE_MODEL_GENERATED_IMAGES and (iteration % SAVE_IMAGES_FREQUENCY == 0 or iteration == NUM_ITERATIONS):
         # Plot the generated images via the model
         fig, ax = plt.subplots(1, 5, figsize=(20, 5))
         ax[0].imshow(img_rec_np)

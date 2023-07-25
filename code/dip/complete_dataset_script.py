@@ -47,7 +47,7 @@ folder_route = f'../../results/{APPROACH_USED}/batch_training'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
 
-if 'bcdnet' in APPROACH_USED and RUN_FROM_WEIGHTS:
+if RUN_FROM_WEIGHTS:
     pretrained_weights_filepath = askforPyTorchWeightsviaGUI()
 
 for organ in ORGAN_LIST:
@@ -83,7 +83,7 @@ for organ in ORGAN_LIST:
             header = ','.join(metrics_dict.keys()) + '\n'
             file.write(header)
 
-        for iteration in range(NUM_ITERATIONS):
+        for iteration in range(1, NUM_ITERATIONS+1):
 
             start_time = time.time()
             optimizer.zero_grad()
@@ -127,7 +127,7 @@ for organ in ORGAN_LIST:
 
             # Calculate general metrics and reconstruction metrics
             metrics_dict['time'] = ((time.time() - start_time) * 1000.0)  # Milliseconds
-            metrics_dict['epoch'] = iteration+1
+            metrics_dict['epoch'] = iteration
             metrics_dict['loss'] = loss.item()
             metrics_dict['mse_rec'] = torch.sum(torch.pow(reconstructed_od - rgb2od(original_tensor), 2)).item() / (3.0*H*W)
             metrics_dict['psnr_rec'] = torch.sum(peak_signal_noise_ratio(reconstructed, original_tensor)).item()
