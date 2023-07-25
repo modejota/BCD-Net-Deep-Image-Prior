@@ -43,7 +43,7 @@ metrics_dict = {
 
 
 # Create the folder for the results
-folder_route = f'../results/{APPROACH_USED}/batch_training'
+folder_route = f'../../results/{APPROACH_USED}/batch_training'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
 

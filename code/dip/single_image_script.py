@@ -54,7 +54,7 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0
 }
 
-folder_route = f'../results/{APPROACH_USED}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
+folder_route = f'../../results/{APPROACH_USED}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
 
@@ -109,8 +109,11 @@ ax[4].imshow(E_gt_np)
 ax[4].set_title('Original Eosin')
 ax[4].axis('off')
 
-plt.savefig(f'{folder_route}/images/ground_truth_image.png', transparent=True)
-plt.close()
+if SAVE_GROUND_TRUTH_IMAGES:
+    if not os.path.exists(f'{folder_route}/images'):
+        os.makedirs(f'{folder_route}/images')
+    plt.savefig(f'{folder_route}/images/ground_truth_image.png', transparent=True)
+    plt.close()
 
 # Move to GPU, we gonna need it later during traning for metrics' calculation.
 H_gt = H_gt.to(device)
