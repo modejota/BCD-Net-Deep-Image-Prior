@@ -39,7 +39,7 @@ class CamelyonDataset(torch.utils.data.Dataset):
     def scan_files(self):
 
         print('[CamelyonDataset] Scanning files...')
-        
+
         tumor_patches_dict = {c : [] for c in self.centers}
         normal_patches_dict = {c : [] for c in self.centers}
 
@@ -49,7 +49,7 @@ class CamelyonDataset(torch.utils.data.Dataset):
 
         num_available_patches = np.sum([len(tumor_patches_dict[c]) + len(normal_patches_dict[c]) for c in self.centers])
         print('[CamelyonDataset] Available patches:', num_available_patches)
-        
+
         patches_ids = []
         if self.n_samples is not None:
             print(f"[CamelyonDataset] Sampling {self.n_samples} patches")
@@ -67,11 +67,11 @@ class CamelyonDataset(torch.utils.data.Dataset):
             for c in self.centers:
                 patches_ids += tumor_patches_dict[c]
                 patches_ids += normal_patches_dict[c]
-        
+
         print('[CamelyonDataset] Done scanning files')
 
         return patches_ids
-    
+
     def load_files(self):
         print('[CamelyonDataset] Loading images...')
         images = []
@@ -89,7 +89,7 @@ class CamelyonDataset(torch.utils.data.Dataset):
             img = random_crop(img, self.patch_size)
         img = img.transpose(2,0,1).astype(np.float32)
         return img
-        
+
     def __len__(self):
         return len(self.image_files)
 
@@ -119,17 +119,24 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         print('[WSSBDataset] Scanning files...')
         patches_ids = []
         sv_ids = []
+
         for organ in self.organ_list:
             c_dir_list = os.listdir(f"{self.data_path}/GroundTruth/{organ}/")
+            c_dir_list.sort()  # Sort the c_dir_list in ascending order
+
             for c_dir in c_dir_list:
                 id_dir_list = os.listdir(f"{self.data_path}/RGB_images/{organ}/{c_dir}/")
+                id_dir_list.sort()  # Sort the id_dir_list in ascending order
+
                 for id_dir in id_dir_list:
                     sv_ids.append(f"{self.data_path}/GroundTruth/{organ}/{c_dir}/SV.mat")
-                    img_dir_path = f"{self.data_path}/RGB_images/{organ}/{c_dir}/{id_dir}/"
-                    patches_ids = patches_ids + [f"{img_dir_path}/{name}" for name in os.listdir(img_dir_path) if name.endswith((".jpg", ".jpeg", ".png", ".bmp"))]
+                    img_dir_path = f"{self.data_path}/RGB_images/{organ}/{c_dir}/{id_dir}"
+                    img_paths_in_dir = [f"{img_dir_path}/{name}" for name in os.listdir(img_dir_path) if name.endswith((".jpg", ".jpeg", ".png", ".bmp"))]
+                    patches_ids.extend(img_paths_in_dir)
+
         print('[WSSBDataset] Done scanning files')
         return patches_ids, sv_ids
-    
+
     def load_files(self):
         print('[WSSBDataset] Loading files...')
         images = []
@@ -152,8 +159,8 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         sv_file = self.sv_files[idx]
         M_gt = loadmat(sv_file)['Stains'].astype(np.float32)
 
-        return img, M_gt
-    
+        return img, M_gt, file
+
     def __len__(self):
         return len(self.image_files)
 
@@ -162,10 +169,11 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         if self.load_at_init:
             img = self.images[idx]
             M_gt = self.M_gts[idx]
+            filepath = self.images_path[idx]
         else:
-            img, M_gt = self.load_file(idx)
-        
+            img, M_gt, filepath = self.load_file(idx)
+
         img = torch.from_numpy(img)
         M_gt = torch.from_numpy(M_gt)
 
-        return img, M_gt
+        return img, M_gt, filepath
