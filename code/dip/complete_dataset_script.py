@@ -55,7 +55,7 @@ for organ in ORGAN_LIST:
     dataset = WSSBDatasetTest(alsubaie_dataset_path, organ_list=[organ], load_at_init=False)
 
     # Train the model and evaluate for each image
-    for index, (image, M_gt) in enumerate(dataset):
+    for index, (image, M_gt, _) in enumerate(dataset):
 
         print(f"Organ: {organ} \t Image: {index}")
 

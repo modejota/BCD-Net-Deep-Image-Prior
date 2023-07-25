@@ -41,7 +41,7 @@ print('Using device:', device)
 alsubaie_dataset_path = args.wssb_data_path
 
 dataset = WSSBDatasetTest(alsubaie_dataset_path, organ_list=[ORGAN], load_at_init=False)
-original_image, M_gt = dataset[IMAGE_TO_LOAD]
+original_image, M_gt, _ = dataset[IMAGE_TO_LOAD]
 print('Image shape:', original_image.shape)
 
 NUM_ITERATIONS = args.iterations
