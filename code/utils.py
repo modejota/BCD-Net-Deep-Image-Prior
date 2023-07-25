@@ -58,12 +58,12 @@ def direct_deconvolution(Y, M):
         C = C.view(batch_size, 2, H, W) # (batch_size, 2, H, W)
 
     if squeeze_at_end:
-        C = C.squeeze(0)    
+        C = C.squeeze(0)
     return C
 
 def peak_signal_noise_ratio(A, B, max=255.0):
     """
-    input: 
+    input:
         A: tensor of shape (N, C, H, W)
         B: tensor of shape (N, C, H, W)
     return:
@@ -89,14 +89,14 @@ def structural_similarity(A, B):
     N, C, H, W = A.shape
 
     A = A.reshape(N, -1)  # Reshape to (N, C*H*W)
-    B = B.reshape(N, -1)  
+    B = B.reshape(N, -1)
 
     data_range = 255.0
 
     mu_A = torch.mean(A, dim=1)  # Compute mean along (C*H*W) -> (N, )
-    mu_B = torch.mean(B, dim=1)  
+    mu_B = torch.mean(B, dim=1)
     var_A = torch.var(A, dim=1)  # Compute variance along (C*H*W) -> (N, )
-    var_B = torch.var(B, dim=1)  
+    var_B = torch.var(B, dim=1)
 
     # Compute covariance of A and B
     cov_AB = torch.mean((A - mu_A.view(-1, 1)) * (B - mu_B.view(-1, 1)), dim=1)  # -> (N, )
@@ -147,3 +147,20 @@ def askforimageviaGUI(initialdirectory="."):
         print(f'No se ha seleccionado ningún archivo.')
         sys.exit(102)
     return img
+
+def askforPyTorchWeightsviaGUI(initialdirectory="."):
+    Tk().withdraw()
+    try:
+        weights = filedialog.askopenfilename(initialdir=initialdirectory, title="Seleccione fichero", filetypes=[
+            ("PyTorch weights", (".pth", '.pt')),
+        ])
+    except(OSError, FileNotFoundError):
+        print(f'No se ha podido abrir el fichero seleccionado.')
+        sys.exit(100)
+    except Exception as error:
+        print(f'Ha ocurrido un error: <{error}>')
+        sys.exit(101)
+    if weights is None:
+        print(f'No se ha seleccionado ningún archivo.')
+        sys.exit(102)
+    return weights
