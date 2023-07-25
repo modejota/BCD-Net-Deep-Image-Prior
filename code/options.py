@@ -13,12 +13,12 @@ def set_opts():
     parser.add_argument('--load_at_init', action='store_true', help="Load files at init")
 
     parser.add_argument(
-                        '--camelyon_data_path', default='/data/datasets/Camelyon/Camelyon17/training/patches_224/', 
+                        '--camelyon_data_path', default='/data/datasets/Camelyon/Camelyon17/training/patches_224/',
                         type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
                         )
     parser.add_argument(
-                        '--wssb_data_path', default='/data/datasets/Alsubaie/Data/', 
-                        type=str, metavar='PATH', help="Path to load the Camelyon dataset images"
+                        '--wssb_data_path', default='/data/datasets/Alsubaie/Data/',
+                        type=str, metavar='PATH', help="Path to load the WSSB dataset images"
                         )
     parser.add_argument('--history_dir', default='/work/work_fran/Deep_Var_BCD/history/', type=str, metavar='PATH', help="Path to save the training history")
     parser.add_argument('--weights_dir', default='/work/work_fran/Deep_Var_BCD/weights/', type=str, metavar='PATH', help="Path to save the model weights")
