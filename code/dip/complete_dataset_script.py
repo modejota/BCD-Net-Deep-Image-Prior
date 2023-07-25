@@ -28,7 +28,7 @@ NUM_ITERATIONS = args.iterations
 # Always running on Delfos
 
 torch.manual_seed(0)
-device = torch.device(args.device)
+device = torch.device(args.device[:-2])
 print('Using device:', device)
 
 alsubaie_dataset_path = args.wssb_data_path

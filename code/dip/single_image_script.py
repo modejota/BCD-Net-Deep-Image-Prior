@@ -35,7 +35,7 @@ torch.manual_seed(0)
 plt.rcParams['font.size'] = 14
 plt.rcParams['toolbar'] = 'None'
 
-device = torch.device(args.device)
+device = torch.device(args.device[:-2])
 print('Using device:', device)
 
 alsubaie_dataset_path = args.wssb_data_path
@@ -68,7 +68,6 @@ with(open(metrics_filepath, 'w')) as file:
 
 
 # Generate all images derivated from the ground truth.
-
 img_np = original_image.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
 img_od = rgb2od(original_image)
 
