@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import time
 import torch
 import numpy as np
+from tqdm import tqdm
 
 from models import Cnet, BCDnet
 from datasets import WSSBDatasetTest
@@ -28,7 +29,7 @@ NUM_ITERATIONS = args.iterations
 # Always running on Delfos
 
 torch.manual_seed(0)
-device = torch.device(args.device[:-2])
+device = torch.device(args.device[:-2] if args.device != 'cpu' else 'cpu')
 print('Using device:', device)
 
 alsubaie_dataset_path = args.wssb_data_path
@@ -47,17 +48,18 @@ folder_route = f'../../results/{APPROACH_USED}/batch_training'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
 
+if not os.path.exists(folder_route + '/metrics'):
+    os.makedirs(folder_route + '/metrics')
+
 if RUN_FROM_WEIGHTS:
     pretrained_weights_filepath = askforPyTorchWeightsviaGUI()
 
-for organ in ORGAN_LIST:
+for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
     # One dataset for each organ would help to keep track of the results
     dataset = WSSBDatasetTest(alsubaie_dataset_path, organ_list=[organ], load_at_init=False)
 
     # Train the model and evaluate for each image
-    for index, (image, M_gt, _) in enumerate(dataset):
-
-        print(f"Organ: {organ} \t Image: {index}")
+    for index, (image, M_gt, _) in tqdm(enumerate(dataset), desc="Images", unit="image", leave=False):
 
         if 'bcdnet' in APPROACH_USED:
             model = BCDnet(cnet_name='unet_64_6', mnet_name='mobilenetv3s_50').to(device)
@@ -83,7 +85,22 @@ for organ in ORGAN_LIST:
             header = ','.join(metrics_dict.keys()) + '\n'
             file.write(header)
 
-        for iteration in range(1, NUM_ITERATIONS+1):
+        # Generate the ground truth images
+        C_gt = direct_deconvolution(rgb2od(image), M_gt).unsqueeze(0) # (1, 2, H, W)
+        M_gt = M_gt.unsqueeze(0) # (1, 3, 2)
+
+        gt_od = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)
+        H_gt_od = gt_od[:,0,:,:]
+        H_gt = torch.clamp(od2rgb(H_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
+        E_gt_od = gt_od[:,1,:,:]
+        E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
+
+        H_gt = H_gt.to(device)
+        H_gt_od = H_gt_od.to(device)
+        E_gt = E_gt.to(device)
+        E_gt_od = E_gt_od.to(device)            
+
+        for iteration in tqdm(range(1, NUM_ITERATIONS+1), desc="Iterations", unit="iteration", leave=False):
 
             start_time = time.time()
             optimizer.zero_grad()
@@ -133,20 +150,6 @@ for organ in ORGAN_LIST:
             metrics_dict['psnr_rec'] = torch.sum(peak_signal_noise_ratio(reconstructed, original_tensor)).item()
             metrics_dict['ssim_rec'] = torch.sum(structural_similarity(reconstructed, original_tensor)).item()
 
-            # Generate the ground truth images
-            C_gt = direct_deconvolution(rgb2od(image), M_gt).unsqueeze(0) # (1, 2, H, W)
-
-            gt_od = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)
-            H_gt_od = gt_od[:,0,:,:]
-            H_gt = torch.clamp(od2rgb(H_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
-            E_gt_od = gt_od[:,1,:,:]
-            E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
-
-            H_gt = H_gt.to(device)
-            H_gt_od = H_gt_od.to(device)
-            E_gt = E_gt.to(device)
-            E_gt_od = E_gt_od.to(device)
-
             # Generate the images from the model
             C_mean = C_matrix.detach().cpu()
 
@@ -176,6 +179,8 @@ for organ in ORGAN_LIST:
 
         # Save weights at the end in case we want to train further from this point.
         if SAVE_WEIGHTS:
+            if not os.path.exists(folder_route + '/weights'):
+                os.makedirs(folder_route + '/weights')
             save_weights_filepath = folder_route + f"/weights/{organ}_{index}_iteration_{NUM_ITERATIONS}.pt"
             if os.path.exists(save_weights_filepath):
                 new_number_iterations = int(save_weights_filepath.split('_')[-1].split('.')[0]) + NUM_ITERATIONS

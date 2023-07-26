@@ -11,6 +11,7 @@ import time
 import torch
 import numpy as np
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 from models import Cnet, BCDnet
 from datasets import WSSBDatasetTest
@@ -35,7 +36,7 @@ torch.manual_seed(0)
 plt.rcParams['font.size'] = 14
 plt.rcParams['toolbar'] = 'None'
 
-device = torch.device(args.device[:-2])
+device = torch.device(args.device[:-2] if args.device != 'cpu' else 'cpu')
 print('Using device:', device)
 
 alsubaie_dataset_path = args.wssb_data_path
@@ -57,6 +58,9 @@ metrics_dict = {
 folder_route = f'../../results/{APPROACH_USED}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
+
+if not os.path.exists(f'{folder_route}/images'):
+    os.makedirs(f'{folder_route}/images')
 
 metrics_filepath = f'{folder_route}/metrics.csv'
 if os.path.exists(metrics_filepath):
@@ -86,29 +90,29 @@ E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
 H_gt_np = H_gt.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
 E_gt_np = E_gt.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
 
-fig, ax = plt.subplots(1, 5, figsize=(20, 5))
-
-ax[0].imshow(img_np)
-ax[0].set_title('Original Image')
-ax[0].axis('off')
-
-ax[1].imshow(C_H_gt_np, cmap='gray')
-ax[1].set_title('Original Hematoxylin\nConcentration')
-ax[1].axis('off')
-
-ax[2].imshow(C_E_gt_np, cmap='gray')
-ax[2].set_title('Original Eosin\nConcentration')
-ax[2].axis('off')
-
-ax[3].imshow(H_gt_np)
-ax[3].set_title('Original Hematoxylin')
-ax[3].axis('off')
-
-ax[4].imshow(E_gt_np)
-ax[4].set_title('Original Eosin')
-ax[4].axis('off')
-
 if SAVE_GROUND_TRUTH_IMAGES:
+    fig, ax = plt.subplots(1, 5, figsize=(20, 5))
+
+    ax[0].imshow(img_np)
+    ax[0].set_title('Original Image')
+    ax[0].axis('off')
+
+    ax[1].imshow(C_H_gt_np, cmap='gray')
+    ax[1].set_title('Original Hematoxylin\nConcentration')
+    ax[1].axis('off')
+
+    ax[2].imshow(C_E_gt_np, cmap='gray')
+    ax[2].set_title('Original Eosin\nConcentration')
+    ax[2].axis('off')
+
+    ax[3].imshow(H_gt_np)
+    ax[3].set_title('Original Hematoxylin')
+    ax[3].axis('off')
+
+    ax[4].imshow(E_gt_np)
+    ax[4].set_title('Original Eosin')
+    ax[4].axis('off')
+
     if not os.path.exists(f'{folder_route}/images'):
         os.makedirs(f'{folder_route}/images')
     plt.savefig(f'{folder_route}/images/ground_truth_image.png', transparent=True)
@@ -141,7 +145,8 @@ if RUN_FROM_WEIGHTS:
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
 
-for iteration in range (1, NUM_ITERATIONS+1):
+loop_data = range(1, NUM_ITERATIONS+1)
+for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
 
     start_time = time.time()
     optimizer.zero_grad()
