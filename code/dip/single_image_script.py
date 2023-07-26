@@ -226,7 +226,7 @@ for iteration in range (1, NUM_ITERATIONS+1):
         data_row = ','.join(str(val) for val in metrics_dict.values()) + '\n'
         file.write(data_row)
 
-    if SAVE_MODEL_GENERATED_IMAGES and (iteration % SAVE_IMAGES_FREQUENCY == 0 or iteration == NUM_ITERATIONS):
+    if SAVE_MODEL_GENERATED_IMAGES and (iteration % SAVE_IMAGES_FREQUENCY == 0 or iteration == NUM_ITERATIONS or iteration == 1):
         # Plot the generated images via the model
         fig, ax = plt.subplots(1, 5, figsize=(20, 5))
         ax[0].imshow(img_rec_np)
