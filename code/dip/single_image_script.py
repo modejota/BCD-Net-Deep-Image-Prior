@@ -27,6 +27,7 @@ APPROACH_USED = args.approach
 BATCH_SIZE = 1  # Should always be 1
 SIGMA_RUI_SQ = args.sigma_rui_sq
 LEARNING_RATE = args.lr
+THETA_VAL = 0.5 # Ponderation for each kind of loss in the total loss of BCDNET_E2
 
 ORGAN = args.organ
 IMAGE_TO_LOAD = args.image_id
@@ -177,7 +178,6 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
 
     # THETA_VAL MAY NEED ADJUSTMENT. GET LOSS VALUES TO ESTABLISH MAGNITUTE ORDER AND PONDERATION
     elif APPROACH_USED == 'bcdnet_e2':
-        THETA_VAL = 0.5
         ruifrok_matrix = torch.tensor([
                             [0.6442, 0.0928],
                             [0.7166, 0.9541],
@@ -189,13 +189,14 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
         loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
         loss_rec = torch.nn.functional.mse_loss(reconstructed, original_tensor) / BATCH_SIZE
-        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
+        
+        normalized_factor = loss_rec / loss_kl if iteration < 150 else 1.0
+        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl*normalized_factor
 
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
 
     elif APPROACH_USED == 'bcdnet_e2m':
-        THETA_VAL = 0.5
         ruifrok_matrix = torch.tensor([
                             [0.6442, 0.0928],
                             [0.7166, 0.9541],
