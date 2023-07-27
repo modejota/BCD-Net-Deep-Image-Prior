@@ -47,13 +47,17 @@ print('Image shape:', original_image.shape)
 
 NUM_ITERATIONS = args.iterations
 
-metrics_dict = {
-    'epoch' : 0, 'loss': 0.0,
+metrics_dict = { 
+    'epoch' : 0, 'loss': 0.0, 
     'mse_rec' : 0.0, 'psnr_rec': 0.0, 'ssim_rec': 0.0,
     'mse_gt_h': 0.0, 'mse_gt_e': 0.0, 'mse_gt': 0.0,
     'psnr_gt_h': 0.0, 'psnr_gt_e': 0.0, 'psnr_gt': 0.0,
-    'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0
+    'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
+
+if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e2m']:
+    metrics_dict['loss_rec'] = 0.0
+    metrics_dict['loss_kl'] = 0.0
 
 folder_route = f'../../results/{APPROACH_USED}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
 if not os.path.exists(folder_route):
@@ -151,7 +155,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     start_time = time.time()
     optimizer.zero_grad()
 
-    if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2']:
+    if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e2m']:
         # Using BCDnet we obtain both the concentration matrix and the colors matrix as well as the colors' variation
         M_matrix, M_variation, C_matrix = model(input_noise)
 
@@ -171,7 +175,27 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     if APPROACH_USED in ['bcdnet_e1', 'cnet_e2']:
         loss = torch.nn.functional.mse_loss(reconstructed, original_tensor)
 
+    # THETA_VAL MAY NEED ADJUSTMENT. GET LOSS VALUES TO ESTABLISH MAGNITUTE ORDER AND PONDERATION
     elif APPROACH_USED == 'bcdnet_e2':
+        THETA_VAL = 0.5
+        ruifrok_matrix = torch.tensor([
+                            [0.6442, 0.0928],
+                            [0.7166, 0.9541],
+                            [0.2668, 0.2831]
+                            ]).type(torch.float32)
+        ruifrok_matrix = ruifrok_matrix.repeat(BATCH_SIZE, 1, 1).to(device)  # (batch_size, 3, 2)
+        M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2) 
+        # Calculate the Kullback-Leiber divergence via its closed form
+        loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
+        loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
+        loss_rec = torch.nn.functional.mse_loss(reconstructed, original_tensor) / BATCH_SIZE
+        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
+
+        metrics_dict['loss_rec'] = loss_rec.item()
+        metrics_dict['loss_kl'] = loss_kl.item()
+
+    elif APPROACH_USED == 'bcdnet_e2m':
+        THETA_VAL = 0.5
         ruifrok_matrix = torch.tensor([
                             [0.6442, 0.0928],
                             [0.7166, 0.9541],
@@ -179,11 +203,20 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
                             ]).type(torch.float32)
         ruifrok_matrix = ruifrok_matrix.repeat(BATCH_SIZE, 1, 1).to(device)  # (batch_size, 3, 2)
         M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
-        # Calculate the Kullback-Leiber divergence via its closed form
+
         loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
         loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
-        loss_mse = torch.nn.functional.mse_loss(reconstructed, original_tensor)
-        loss = loss_mse + loss_kl
+        # Re-parametrization trick to sample from the gaussian distribution 
+        M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
+
+        Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_mean) # (batch_size, 3, H, W)
+        loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor)) / BATCH_SIZE # (1) 
+
+        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
+
+        metrics_dict['loss_rec'] = loss_rec.item()
+        metrics_dict['loss_kl'] = loss_kl.item()
+
 
     loss.backward()
     optimizer.step()
