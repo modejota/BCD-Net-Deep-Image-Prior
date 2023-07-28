@@ -16,7 +16,6 @@ def set_opts():
     parser.add_argument('--organs', nargs='+', choices=['Lung', 'Breast', 'Colon'], help='Organ used during training.')
     parser.add_argument('--image_id', type=int, help="Image ID to process. Only for individual processing", default=0)
 
-    parser.add_argument('--delfos', action='store_true', help="Use Delfos server")
     parser.add_argument(
                         '--load_weights_path', default='/home/modej/Deep_Var_BCD/results/',
                         type=str, metavar='PATH', help="Path to load the model weights"
@@ -29,6 +28,7 @@ def set_opts():
     parser.add_argument('--lr', type=float, default=1e-4, help="Initial learning rate")
     parser.add_argument('--sigma_rui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M")
     parser.add_argument('--iterations', type=int, default=4000, help="Number of training iterations")
+    parser.add_argument('--theta_val', type=float, default=0.5, help="Value of theta (ponderation between rec and kl losses)")
 
     args = parser.parse_args()
     return args

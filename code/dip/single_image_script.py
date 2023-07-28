@@ -27,11 +27,10 @@ APPROACH_USED = args.approach
 BATCH_SIZE = 1  # Should always be 1
 SIGMA_RUI_SQ = args.sigma_rui_sq
 LEARNING_RATE = args.lr
-THETA_VAL = 0.5 # Ponderation for each kind of loss in the total loss of BCDNET_E2
+THETA_VAL = args.theta_val
 
 ORGAN = args.organ
 IMAGE_TO_LOAD = args.image_id
-RUNNING_ON_DELFOS = args.delfos
 
 torch.manual_seed(0)
 plt.rcParams['font.size'] = 14
@@ -190,8 +189,8 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
         loss_rec = torch.nn.functional.mse_loss(reconstructed, original_tensor) / BATCH_SIZE
         
-        normalized_factor = loss_rec / loss_kl if iteration < 150 else 1.0
-        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl*normalized_factor
+        normalization_factor = loss_rec / loss_kl if loss_kl > 1 and loss_rec > 1 else 1.0
+        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl*normalization_factor
 
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
@@ -214,6 +213,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor)) / BATCH_SIZE # (1) 
 
         loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
+        # TO be done
 
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
