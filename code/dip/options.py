@@ -11,7 +11,7 @@ def set_opts():
     parser.add_argument('--save_weights', action='store_true', help="Save model weights at the end of training training")
     parser.add_argument('--load_weights', action='store_true', help="Load model weights at the beginning of training")
 
-    parser.add_argument('--approach', choices=['bcdnet_e1', 'bcdnet_e2', 'cnet_e2'], help="Approach used during training")
+    parser.add_argument('--approach', choices=['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e2x', 'cnet_e2'], help="Approach used during training")
     parser.add_argument('--organ', choices=['Lung', 'Breast', 'Colon'], default='Colon', help="Organ used during training. Only for individual processing")
     parser.add_argument('--organs', nargs='+', choices=['Lung', 'Breast', 'Colon'], help='Organ used during training.')
     parser.add_argument('--image_id', type=int, help="Image ID to process. Only for individual processing", default=0)

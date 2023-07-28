@@ -13,9 +13,10 @@ import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
-from models import Cnet, BCDnet
+from models.BCDnet import BCDnet
+from models.cnet import Cnet
 from datasets import WSSBDatasetTest
-from utils import od2rgb, rgb2od, random_ruifrok_matrix_variation, direct_deconvolution, peak_signal_noise_ratio, structural_similarity, askforPyTorchWeightsviaGUI
+from utils import od2rgb, rgb2od, random_ruifrok_matrix_variation, direct_deconvolution, peak_signal_noise_ratio, structural_similarity
 
 SAVE_GROUND_TRUTH_IMAGES = args.sgti
 SAVE_MODEL_GENERATED_IMAGES = args.smgi
@@ -74,6 +75,12 @@ with(open(metrics_filepath, 'w')) as file:
     header = ','.join(metrics_dict.keys()) + '\n'
     file.write(header)
 
+ruifrok_matrix = torch.tensor([
+                    [0.6442, 0.0928],
+                    [0.7166, 0.9541],
+                    [0.2668, 0.2831]
+                    ]).type(torch.float32)
+ruifrok_matrix = ruifrok_matrix.repeat(BATCH_SIZE, 1, 1).to(device)  # (batch_size, 3, 2)
 
 # Generate all images derivated from the ground truth.
 img_np = original_image.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
@@ -139,6 +146,7 @@ elif 'cnet' in APPROACH_USED:
 else:
     raise Exception('Approach not found.')
 
+
 if RUN_FROM_WEIGHTS:
     weightsfile = args.load_weights_path
     if os.path.isfile(weightsfile):
@@ -148,6 +156,9 @@ if RUN_FROM_WEIGHTS:
     model.load_state_dict(torch.load(weightsfile))
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+if APPROACH_USED == 'bcdnet_e2x':
+    optimizer_C = torch.optim.AdamW(model.C.parameters(), lr=LEARNING_RATE)
+    optimizer_M = torch.optim.AdamW(model.M.parameters(), lr=LEARNING_RATE)
 
 loop_data = range(1, NUM_ITERATIONS+1)
 for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
@@ -157,7 +168,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
 
     if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e2m']:
         # Using BCDnet we obtain both the concentration matrix and the colors matrix as well as the colors' variation
-        M_matrix, M_variation, C_matrix = model(input_noise)
+        M_matrix, M_variation, C_matrix = model(input_noise)        
 
     elif APPROACH_USED == 'cnet_e2':
         # Using Cnet we just obtain the concentration matrix
@@ -175,35 +186,22 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     if APPROACH_USED in ['bcdnet_e1', 'cnet_e2']:
         loss = torch.nn.functional.mse_loss(reconstructed, original_tensor)
 
-    # THETA_VAL MAY NEED ADJUSTMENT. GET LOSS VALUES TO ESTABLISH MAGNITUTE ORDER AND PONDERATION
+    # Need to further thinking so errors have more or less same order of magnitude
     elif APPROACH_USED == 'bcdnet_e2':
-        ruifrok_matrix = torch.tensor([
-                            [0.6442, 0.0928],
-                            [0.7166, 0.9541],
-                            [0.2668, 0.2831]
-                            ]).type(torch.float32)
-        ruifrok_matrix = ruifrok_matrix.repeat(BATCH_SIZE, 1, 1).to(device)  # (batch_size, 3, 2)
         M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2) 
         # Calculate the Kullback-Leiber divergence via its closed form
         loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
         loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
         loss_rec = torch.nn.functional.mse_loss(reconstructed, original_tensor) / BATCH_SIZE
         
-        normalization_factor = loss_rec / loss_kl if loss_kl > 1 and loss_rec > 1 else 1.0
-        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl*normalization_factor
+        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
 
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
 
     elif APPROACH_USED == 'bcdnet_e2m':
-        ruifrok_matrix = torch.tensor([
-                            [0.6442, 0.0928],
-                            [0.7166, 0.9541],
-                            [0.2668, 0.2831]
-                            ]).type(torch.float32)
-        ruifrok_matrix = ruifrok_matrix.repeat(BATCH_SIZE, 1, 1).to(device)  # (batch_size, 3, 2)
         M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
-
+        # Calculate the Kullback-Leiber divergence via its closed form
         loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
         loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
         # Re-parametrization trick to sample from the gaussian distribution 
@@ -218,9 +216,28 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
 
+    elif APPROACH_USED == 'bcdnet_e2x':
 
-    loss.backward()
-    optimizer.step()
+        M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
+        # Calculate the Kullback-Leiber divergence via its closed form
+        loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
+        loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
+        # Re-parametrization trick to sample from the gaussian distribution
+        M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
+
+        Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_mean) # (batch_size, 3, H, W)
+        loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor)) / BATCH_SIZE # (1)
+
+        loss_rec.backward()
+        optimizer_C.step()
+        loss_kl.backward()
+        optimizer_M.step()
+        metrics_dict['loss_rec'] = loss_rec.item()
+        metrics_dict['loss_kl'] = loss_kl.item()
+
+    if APPROACH_USED != 'bcdnet_e2x':
+        loss.backward()
+        optimizer.step()
 
     # Calculate general metrics and reconstruction metrics
     metrics_dict['time'] = ((time.time() - start_time) * 1000.0)  # Milliseconds
@@ -229,6 +246,9 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     metrics_dict['mse_rec'] = torch.sum(torch.pow(reconstructed_od - rgb2od(original_tensor), 2)).item() / (3.0*H*W)
     metrics_dict['psnr_rec'] = torch.sum(peak_signal_noise_ratio(reconstructed, original_tensor)).item()
     metrics_dict['ssim_rec'] = torch.sum(structural_similarity(reconstructed, original_tensor)).item()
+
+    if APPROACH_USED == 'bcdnet_e2x':
+        metrics_dict['loss'] = 0.0
 
     # Generate the images from the model
     C_mean = C_matrix.detach().cpu()
