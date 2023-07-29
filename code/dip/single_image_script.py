@@ -59,7 +59,7 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
 
-if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e2m']:
+if APPROACH_USED in ['bcdnet_e2']:
     metrics_dict['loss_rec'] = 0.0
     metrics_dict['loss_kl'] = 0.0
 
@@ -140,6 +140,7 @@ E_gt_od = E_gt_od.to(device)
 
 input_noise = torch.rand(original_image.shape).unsqueeze(0).to(device)  # Unsqueezed to add the batch dimension, it needs to be ([1, 3, x, y])
 original_tensor = original_image.unsqueeze(0).to(device)
+original_tensor_od = rgb2od(original_tensor).to(device)
 _, _, H, W = original_tensor.shape
 
 if 'bcdnet' in APPROACH_USED:
@@ -166,7 +167,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     start_time = time.time()
     optimizer.zero_grad()
 
-    if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e2m']:
+    if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2']:
         # Using BCDnet we obtain both the concentration matrix and the colors matrix as well as the colors' variation
         M_matrix, M_variation, C_matrix = model(input_noise)        
 
@@ -183,23 +184,11 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     reconstructed_od = torch.einsum('bcs,bshw->bchw', M_matrix, C_matrix)   # ([1, 3, x, y])
     reconstructed = torch.clamp(od2rgb(reconstructed_od), 0, 255.0)
 
+    # May need to change this so both are calculated in OD
     if APPROACH_USED in ['bcdnet_e1', 'cnet_e2']:
         loss = torch.nn.functional.mse_loss(reconstructed, original_tensor)
 
-    # Engine.py seems to use OD for loss calculation, May need to change it in all the approaches. Test first for E2
     elif APPROACH_USED == 'bcdnet_e2':
-        M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2) 
-        # Calculate the Kullback-Leiber divergence via its closed form
-        loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
-        loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
-        loss_rec = torch.nn.functional.mse_loss(reconstructed_od, original_tensor) / BATCH_SIZE
-        
-        loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
-
-        metrics_dict['loss_rec'] = loss_rec.item()
-        metrics_dict['loss_kl'] = loss_kl.item()
-
-    elif APPROACH_USED == 'bcdnet_e2m':
         M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
         # Calculate the Kullback-Leiber divergence via its closed form
         loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
@@ -208,23 +197,19 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
 
         Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
-        loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor)) / BATCH_SIZE # (1) 
+        loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1) 
 
         loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
-        # TO be done
 
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
-
-    elif APPROACH_USED == 'bcdnet_e2x':
-        pass
 
 
     # Calculate general metrics and reconstruction metrics
     metrics_dict['time'] = ((time.time() - start_time) * 1000.0)  # Milliseconds
     metrics_dict['epoch'] = iteration
     metrics_dict['loss'] = loss.item()
-    metrics_dict['mse_rec'] = torch.sum(torch.pow(reconstructed_od - rgb2od(original_tensor), 2)).item() / (3.0*H*W)
+    metrics_dict['mse_rec'] = torch.sum(torch.pow(reconstructed_od - original_tensor_od, 2)).item() / (3.0*H*W)
     metrics_dict['psnr_rec'] = torch.sum(peak_signal_noise_ratio(reconstructed, original_tensor)).item()
     metrics_dict['ssim_rec'] = torch.sum(structural_similarity(reconstructed, original_tensor)).item()
 
