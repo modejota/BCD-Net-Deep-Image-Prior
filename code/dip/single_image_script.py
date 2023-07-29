@@ -204,6 +204,8 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
 
+    loss.backward()
+    optimizer.step()
 
     # Calculate general metrics and reconstruction metrics
     metrics_dict['time'] = ((time.time() - start_time) * 1000.0)  # Milliseconds
