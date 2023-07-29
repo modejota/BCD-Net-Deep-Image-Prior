@@ -186,7 +186,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
 
     # May need to change this so both are calculated in OD
     if APPROACH_USED in ['bcdnet_e1', 'cnet_e2']:
-        loss = torch.nn.functional.mse_loss(reconstructed, original_tensor)
+        loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
 
     elif APPROACH_USED == 'bcdnet_e2':
         M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
