@@ -29,6 +29,8 @@ BATCH_SIZE = 1  # Should always be 1
 SIGMA_RUI_SQ = args.sigma_rui_sq
 LEARNING_RATE = args.lr
 THETA_VAL = args.theta_val
+THETA_VAL_COLORITER = args.theta_val_coloriter
+COLORITER = args.coloriter
 
 ORGAN = args.organ
 IMAGE_TO_LOAD = args.image_id
@@ -167,7 +169,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     start_time = time.time()
     optimizer.zero_grad()
 
-    if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2']:
+    if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e3']:
         # Using BCDnet we obtain both the concentration matrix and the colors matrix as well as the colors' variation
         M_matrix, M_variation, C_matrix = model(input_noise)        
 
@@ -184,7 +186,6 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     reconstructed_od = torch.einsum('bcs,bshw->bchw', M_matrix, C_matrix)   # ([1, 3, x, y])
     reconstructed = torch.clamp(od2rgb(reconstructed_od), 0, 255.0)
 
-    # May need to change this so both are calculated in OD
     if APPROACH_USED in ['bcdnet_e1', 'cnet_e2']:
         loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
 
@@ -203,6 +204,21 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
 
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
+
+    elif APPROACH_USED == 'bcdnet_e3':
+        if iteration < COLORITER:
+            M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
+            # Calculate the Kullback-Leiber divergence via its closed form
+            loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
+            loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
+            # Re-parametrization trick to sample from the gaussian distribution
+            M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
+
+            Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
+            loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
+            loss = (1.0 - THETA_VAL_COLORITER)*loss_rec + THETA_VAL_COLORITER*loss_kl
+        else:
+            loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
 
     loss.backward()
     optimizer.step()
