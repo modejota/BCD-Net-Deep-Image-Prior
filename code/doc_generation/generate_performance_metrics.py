@@ -2,7 +2,7 @@ import os
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def get_csv_filepaths(directory_path):
+def get_csv_filepaths(directory_path='/home/modejota/Deep_Var_BCD/results/'):
     """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories
     Args:
         directory_path (str): The path to the directory
@@ -13,6 +13,22 @@ def get_csv_filepaths(directory_path):
     for root, _, files in os.walk(directory_path):
         for file in files:
             if file.endswith(".csv"):
+                csv_filepaths.append(os.path.join(root, file))
+    
+    return csv_filepaths
+
+def get_certain_csv_filepaths(file_termination, directory_path='/home/modejota/Deep_Var_BCD/results/'):
+    """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories
+    Args:
+        directory_path (str): The path to the directory
+    Returns:
+        list: A list of all the CSV file paths in that directory and its subdirectories
+    """
+    csv_filepaths = []
+    for root, _, files in os.walk(directory_path):
+        for file in files:
+            filepath = os.path.abspath(os.path.join(root, file))
+            if filepath.endswith(file_termination):
                 csv_filepaths.append(os.path.join(root, file))
     
     return csv_filepaths
@@ -68,6 +84,8 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
 
     csv_files = get_csv_filepaths(indir)
     print(f'Found {len(csv_files)} CSV files.')
+    if len(csv_files) == 0:
+        return
 
     method_groups = group_csv_files_by_approach(csv_files)
 
@@ -109,14 +127,65 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
                         ax[row, col].set_ylabel('Value')
 
                         data_idx = idx * 3
-                        ax[row, col].plot(data_lists[metric][data_idx], label=f'{metric}_gt', color='green')
                         ax[row, col].plot(data_lists[metric][data_idx + 1], label=f'{metric}_gt_e', color='steelblue')
                         ax[row, col].plot(data_lists[metric][data_idx + 2], label=f'{metric}_gt_h', color='orange')
+                        ax[row, col].plot(data_lists[metric][data_idx], label=f'{metric}_gt', color='green')
+
 
                         ax[row, col].legend()
 
             plt.savefig(os.path.join(outdir, f'{method_name}_{metric.upper()}.png'))
             plt.close()
 
-if __name__ == '__main__':
-    generate_graphs_by_approach()
+def generate_graphs_by_image(organ: str, id: int, outdir='/home/modejota/Deep_Var_BCD/results/graphs/', metrics_to_use=["psnr", "mse", "ssim"]):
+    """Generate one graph for each image and metric given a directory containing the CSV files with the metrics for a set of approaches
+    Args:
+        organ (str): The name of the organ
+        id (str): The id of the image
+        outdir (str): The path to the directory where the graphs will be saved
+    """
+    organ = organ.lower().capitalize()
+    if id < 0:
+        return
+    filename = f'{organ}_{id}/metrics.csv'
+
+    outdir += os.sep if outdir[-1] != os.sep else ''
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
+
+    csv_files = get_certain_csv_filepaths(filename)
+    csv_files.sort()
+
+    num_files = len(csv_files)
+    print(f'Found {num_files} CSV files.')
+    if num_files == 0:
+        return
+
+    for metric in metrics_to_use:
+        num_rows = int(num_files**0.5)
+        num_cols = (num_files + num_rows - 1) // num_rows
+
+        fig, axs = plt.subplots(num_rows, num_cols, figsize=(20, 5 * num_rows))
+
+        for i, csv_file in enumerate(csv_files):
+            model, _ = get_model_and_organs_info(csv_file)
+
+            df = pd.read_csv(csv_file)
+            values_gt = df[f'{metric}_gt']
+            values_gt_e = df[f'{metric}_gt_e']
+            values_gt_h = df[f'{metric}_gt_h']
+
+            row_idx = i // num_cols
+            col_idx = i % num_cols
+
+            axs[row_idx, col_idx].plot(values_gt, label=f'{metric}_gt')
+            axs[row_idx, col_idx].plot(values_gt_e, label=f'{metric}_gt_e')
+            axs[row_idx, col_idx].plot(values_gt_h, label=f'{metric}_gt_h')
+            axs[row_idx, col_idx].set_title(f'Approach: {model}')
+            axs[row_idx, col_idx].set_xlabel('Iterations')
+            axs[row_idx, col_idx].set_ylabel(f'{metric.upper()}')
+            axs[row_idx, col_idx].legend()
+
+        fig.suptitle(f'Organ: {organ} - Image: {id}')
+        plt.savefig(os.path.join(outdir, f'{organ}_{id}_{metric.upper()}.png'))
+        plt.close()
