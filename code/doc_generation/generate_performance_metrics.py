@@ -114,7 +114,7 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
         num_rows = (len(organ_info) + 2) // 3
 
         for metric in metrics_to_use:
-            fig, ax = plt.subplots(num_rows, 3, figsize=(20, 5 * num_rows))
+            fig, ax = plt.subplots(num_rows, 3, figsize=(6*num_cols, 5 * num_rows))
             fig.suptitle(f'Approach: {method_name} - Metric: {metric.upper()}')
 
             for row in range(num_rows):
@@ -157,7 +157,7 @@ def generate_graphs_by_image(organ: str, id: int, outdir='/home/modejota/Deep_Va
     csv_files.sort()
 
     num_files = len(csv_files)
-    print(f'Found {num_files} CSV files.')
+    print(f'Found {num_files} CSV files for {organ}_{id}.')
     if num_files == 0:
         return
 
@@ -165,7 +165,7 @@ def generate_graphs_by_image(organ: str, id: int, outdir='/home/modejota/Deep_Va
         num_rows = int(num_files**0.5)
         num_cols = (num_files + num_rows - 1) // num_rows
 
-        fig, axs = plt.subplots(num_rows, num_cols, figsize=(20, 5 * num_rows))
+        fig, axs = plt.subplots(num_rows, num_cols, figsize=(6*num_cols, 5 * num_rows))
 
         for i, csv_file in enumerate(csv_files):
             model, _ = get_model_and_organs_info(csv_file)
@@ -178,9 +178,9 @@ def generate_graphs_by_image(organ: str, id: int, outdir='/home/modejota/Deep_Va
             row_idx = i // num_cols
             col_idx = i % num_cols
 
-            axs[row_idx, col_idx].plot(values_gt, label=f'{metric}_gt')
             axs[row_idx, col_idx].plot(values_gt_e, label=f'{metric}_gt_e')
             axs[row_idx, col_idx].plot(values_gt_h, label=f'{metric}_gt_h')
+            axs[row_idx, col_idx].plot(values_gt, label=f'{metric}_gt')
             axs[row_idx, col_idx].set_title(f'Approach: {model}')
             axs[row_idx, col_idx].set_xlabel('Iterations')
             axs[row_idx, col_idx].set_ylabel(f'{metric.upper()}')
