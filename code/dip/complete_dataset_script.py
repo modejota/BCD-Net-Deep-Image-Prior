@@ -15,7 +15,7 @@ from tqdm import tqdm
 from models.BCDnet import BCDnet
 from models.cnet import Cnet
 from datasets import WSSBDatasetTest
-from utils import od2rgb, rgb2od, random_ruifrok_matrix_variation, direct_deconvolution, peak_signal_noise_ratio, structural_similarity, askforPyTorchWeightsviaGUI
+from utils import od2rgb, rgb2od, random_ruifrok_matrix_variation, direct_deconvolution, peak_signal_noise_ratio, structural_similarity
 
 SAVE_WEIGHTS = args.save_weights
 RUN_FROM_WEIGHTS = args.load_weights
