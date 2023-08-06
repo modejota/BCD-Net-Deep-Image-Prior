@@ -78,6 +78,7 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
 
     # Train the model and evaluate for each image
     for index, (image, M_gt, _) in tqdm(enumerate(dataset), desc="Images", unit="image", leave=False):
+        image = image.to(device)
 
         if 'bcdnet' in APPROACH_USED:
             model = BCDnet(cnet_name='unet_64_6', mnet_name='mobilenetv3s_50').to(device)
