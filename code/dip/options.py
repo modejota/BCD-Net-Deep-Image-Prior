@@ -28,7 +28,7 @@ def set_opts():
     parser.add_argument('--lr', type=float, default=1e-4, help="Initial learning rate")
     parser.add_argument('--sigma_rui_sq', default=0.05, type=float, help="Prior hematoxylin/eosin variance of M")
     parser.add_argument('--iterations', type=int, default=4000, help="Number of training iterations")
-    parser.add_argument('--coloriter', type=int, default=200, help="Number of iterations focusing on getting the correct colors. Only in BCDNET_E3")
+    parser.add_argument('--coloriter', type=int, default=1000, help="Number of iterations focusing on getting the correct colors. Only in BCDNET_E3")
     parser.add_argument('--theta_val', type=float, default=0.5, help="Value of theta (ponderation between rec and kl losses). (1-theta)*rec_loss + theta*kl_loss.")
     parser.add_argument('--theta_val_coloriter', type=float, default=0.99, help="Value of theta (ponderation between rec and kl losses) for the coloriter iterations. (1-theta)*rec_loss + theta*kl_loss. Only in BCDNET_E3.")
 

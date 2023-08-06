@@ -61,7 +61,7 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
 
-if APPROACH_USED in ['bcdnet_e2']:
+if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3']:
     metrics_dict['loss_rec'] = 0.0
     metrics_dict['loss_kl'] = 0.0
 
@@ -153,7 +153,7 @@ else:
     raise Exception('Approach not found.')
 
 
-if RUN_FROM_WEIGHTS:
+if RUN_FROM_WEIGHTS and APPROACH_USED != 'cnet2':
     weightsfile = args.load_weights_path
     if os.path.isfile(weightsfile):
         print(f'Loading weights from {weightsfile}')
@@ -217,8 +217,14 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
             Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
             loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
             loss = (1.0 - THETA_VAL_COLORITER)*loss_rec + THETA_VAL_COLORITER*loss_kl
+            
+            metrics_dict['loss_rec'] = loss_rec.item()
+            metrics_dict['loss_kl'] = loss_kl.item()
+
         else:
             loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
+            metrics_dict['loss_rec'] = np.nan   # Easy filter in the csv file
+            metrics_dict['loss_kl'] = np.nan
 
     loss.backward()
     optimizer.step()
