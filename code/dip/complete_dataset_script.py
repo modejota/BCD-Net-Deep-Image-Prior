@@ -75,6 +75,7 @@ ruifrok_matrix = ruifrok_matrix.repeat(BATCH_SIZE, 1, 1).to(device)  # (batch_si
 for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
     # One dataset for each organ would help to keep track of the results
     dataset = WSSBDatasetTest(alsubaie_dataset_path, organ_list=[organ], load_at_init=False)
+    print("Organ:", organ)
 
     # Train the model and evaluate for each image
     for index, (image, M_gt, _) in tqdm(enumerate(dataset), desc="Images", unit="image", leave=False):
