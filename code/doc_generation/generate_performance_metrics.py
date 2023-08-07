@@ -1,54 +1,67 @@
-import os
+import os, re, math
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-def get_csv_filepaths(directory_path='/home/modejota/Deep_Var_BCD/results/'):
-    """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories
+def get_csv_filepaths(directory_path='/home/modejota/Deep_Var_BCD/results/results_reduced_datasets/', training_type=None):
+    """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories for individual image training
     Args:
         directory_path (str): The path to the directory
+        training_type (str): The type of training to use. It can be "per_image_training" or "batch_training"
     Returns:
         list: A list of all the CSV file paths in that directory and its subdirectories
     """
     csv_filepaths = []
     for root, _, files in os.walk(directory_path):
-        for file in files:
-            if file.endswith(".csv"):
-                csv_filepaths.append(os.path.join(root, file))
+        if training_type in root:
+            for file in files:
+                if file.endswith(".csv"):
+                    csv_filepaths.append(os.path.join(root, file))
     
     return csv_filepaths
 
-def get_certain_csv_filepaths(file_termination, directory_path='/home/modejota/Deep_Var_BCD/results/'):
+def get_certain_csv_filepaths(file_termination, directory_path='/home/modejota/Deep_Var_BCD/results_reduced_datasets/', training_type=None):
     """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories
     Args:
         directory_path (str): The path to the directory
+        training_type (str): The type of training to use. It can be "per_image_training" or "batch_training"
     Returns:
         list: A list of all the CSV file paths in that directory and its subdirectories
     """
     csv_filepaths = []
     for root, _, files in os.walk(directory_path):
-        for file in files:
-            filepath = os.path.abspath(os.path.join(root, file))
-            if filepath.endswith(file_termination):
-                csv_filepaths.append(os.path.join(root, file))
+        if training_type in root:
+            for file in files:
+                filepath = os.path.abspath(os.path.join(root, file))
+                if filepath.endswith(file_termination):
+                    csv_filepaths.append(os.path.join(root, file))
     
     return csv_filepaths
 
-def get_model_and_organs_info(csv_filepath):
+def get_model_and_organs_info(csv_filepath, training_type=None):
     """Given a CSV file path, extract the model name and organ info from the file path
     Args:
         csv_filepath (str): The path to the CSV file
     Returns:
         tuple: A tuple containing the model name and organ info
     """
-    # Split the file path using the directory separator (\ in Windows)
-    path_parts = csv_filepath.split(os.sep)
+    if training_type == 'batch_training':
+        match = re.search(r'(bcdnet_e[123]|cnet_e2).*?(Breast|Colon|Lung)', csv_filepath)
+        if match:
+            method = match.group(1)
+            organ = match.group(2)
+            return method, organ
+        else:
+            return None, None
+    elif training_type == 'per_image_training':
+        path_parts = csv_filepath.split(os.sep)
+        
+        # Extract the desired components from the path
+        model_name = path_parts[-4]
+        organ_info = path_parts[-2]
+        
+        return model_name, organ_info
     
-    # Extract the desired components from the path
-    model_name = path_parts[-4]
-    organ_info = path_parts[-2]
-    
-    return model_name, organ_info
-
 def group_csv_files_by_approach(csv_filepaths):
     """Given a list of CSV file paths, group them by approach
     Args:
@@ -82,7 +95,7 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    csv_files = get_csv_filepaths(indir)
+    csv_files = get_csv_filepaths(indir, training_type='per_image_training')
     print(f'Found {len(csv_files)} CSV files.')
     if len(csv_files) == 0:
         return
@@ -99,7 +112,7 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
         csv_files.sort()
         for filename in csv_files:
             filepath = os.path.join(indir, filename)
-            model_name_, organ_info_ = get_model_and_organs_info(filepath)
+            model_name_, organ_info_ = get_model_and_organs_info(filepath, training_type='per_image_training')
             organ_info.append(organ_info_)
             model_name.append(model_name_)
 
@@ -114,7 +127,7 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
         num_rows = (len(organ_info) + 2) // 3
 
         for metric in metrics_to_use:
-            fig, ax = plt.subplots(num_rows, 3, figsize=(6*num_cols, 5 * num_rows))
+            fig, ax = plt.subplots(num_rows, 3, figsize=(10*num_rows, 5 * num_rows))
             fig.suptitle(f'Approach: {method_name} - Metric: {metric.upper()}')
 
             for row in range(num_rows):
@@ -153,7 +166,7 @@ def generate_graphs_by_image(organ: str, id: int, outdir='/home/modejota/Deep_Va
     if not os.path.exists(outdir):
         os.makedirs(outdir)
 
-    csv_files = get_certain_csv_filepaths(filename)
+    csv_files = get_certain_csv_filepaths(filename, training_type='per_image_training')
     csv_files.sort()
 
     num_files = len(csv_files)
@@ -162,21 +175,24 @@ def generate_graphs_by_image(organ: str, id: int, outdir='/home/modejota/Deep_Va
         return
 
     for metric in metrics_to_use:
-        num_rows = int(num_files**0.5)
-        num_cols = (num_files + num_rows - 1) // num_rows
+        num_columns = math.isqrt(num_files)
+        while num_files % num_columns != 0:
+            num_columns -= 1
+        num_rows = num_files // num_columns
+        num_rows, num_columns = num_columns, num_rows
 
-        fig, axs = plt.subplots(num_rows, num_cols, figsize=(6*num_cols, 5 * num_rows))
+        fig, axs = plt.subplots(num_rows, num_columns, figsize=(6*num_columns, 5 * num_rows))
 
         for i, csv_file in enumerate(csv_files):
-            model, _ = get_model_and_organs_info(csv_file)
+            model, _ = get_model_and_organs_info(csv_file, training_type='per_image_training')
 
             df = pd.read_csv(csv_file)
             values_gt = df[f'{metric}_gt']
             values_gt_e = df[f'{metric}_gt_e']
             values_gt_h = df[f'{metric}_gt_h']
 
-            row_idx = i // num_cols
-            col_idx = i % num_cols
+            row_idx = i // num_columns
+            col_idx = i % num_columns
 
             axs[row_idx, col_idx].plot(values_gt_e, label=f'{metric}_gt_e')
             axs[row_idx, col_idx].plot(values_gt_h, label=f'{metric}_gt_h')
@@ -189,3 +205,68 @@ def generate_graphs_by_image(organ: str, id: int, outdir='/home/modejota/Deep_Va
         fig.suptitle(f'Organ: {organ} - Image: {id}')
         plt.savefig(os.path.join(outdir, f'{organ}_{id}_{metric.upper()}.png'))
         plt.close()
+
+def generate_metrics_report(approach: str, indir='/home/modejota/Deep_Var_BCD/results/', 
+                            outdir='/home/modejota/Deep_Var_BCD/results/', 
+                            organs=["Colon", "Breast", "Lung"], metrics_to_use=["psnr", "mse", "ssim"]):
+    indir += os.sep if indir[-1] != os.sep else ''
+    outdir += os.sep if outdir[-1] != os.sep else ''
+    outdir_approach = f'{outdir}{approach}/batch_training' + os.sep if approach[-1] != os.sep else f'{outdir}{approach}/batch_training/'
+    if not os.path.exists(outdir_approach):
+        os.makedirs(outdir_approach)
+
+    approach_path = f'{indir}{approach}' + os.sep if approach[-1] != os.sep else f'{indir}{approach}'
+    csv_files = get_csv_filepaths(approach_path, training_type='batch_training')
+    csv_files.sort()
+
+    print(f'Found {len(csv_files)} CSV files for {approach}.')
+    if len(csv_files) == 0:
+        return
+    
+    # Generate a map with the filenames for each organ
+    organ_files = {organ: [] for organ in organs}
+    for filename in csv_files:
+        _, organ_info = get_model_and_organs_info(filename, training_type='batch_training')
+        organ_files[organ_info].append(filename)
+          
+    metrics_per_organ = {organ: {metric: [] for metric in metrics_to_use} for organ in organs}
+    for organ in organs:
+        for metric in metrics_to_use:
+            for filename in organ_files[organ]:
+                df = pd.read_csv(filename)
+                max_value_gt = df[f'{metric}_gt'].max()
+                idx_max_value_gt = df[f'{metric}_gt'].idxmax()
+                value_gt_e = df[f'{metric}_gt_e'][idx_max_value_gt]
+                value_gt_h = df[f'{metric}_gt_h'][idx_max_value_gt]
+
+                metrics_per_organ[organ][metric].append((max_value_gt, value_gt_h, value_gt_e))
+        
+        # Calculate the mean value and the std for each metric
+        for metric in metrics_to_use:
+            metrics_per_organ[organ][metric] = np.array(metrics_per_organ[organ][metric])
+            metrics_per_organ[organ][metric] = (metrics_per_organ[organ][metric].mean(axis=0), metrics_per_organ[organ][metric].std(axis=0))
+
+    # Save the values into a text file
+    with open(os.path.join(outdir_approach, f'{approach}_metrics.txt'), 'w') as f:
+        for organ in organs:
+            f.write(f'Organ: {organ}\n')
+            for metric in metrics_to_use:
+                f.write(f'\t{metric.upper()}: {metrics_per_organ[organ][metric][0][0]} ± {metrics_per_organ[organ][metric][1][0]}\n')
+                f.write(f'\t{metric.upper()}_GT_H: {metrics_per_organ[organ][metric][0][1]} ± {metrics_per_organ[organ][metric][1][1]}\n')
+                f.write(f'\t{metric.upper()}_GT_E: {metrics_per_organ[organ][metric][0][2]} ± {metrics_per_organ[organ][metric][1][2]}\n')
+            f.write('\n\n')
+
+
+"""
+if __name__ == "__main__":
+    generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/')
+
+    generate_graphs_by_image(organ='Colon', id=0, outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/')
+    generate_graphs_by_image(organ='Colon', id=6, outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/')
+    generate_graphs_by_image(organ='Lung', id=0, outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/')
+    generate_graphs_by_image(organ='Lung', id=48, outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/')
+    generate_graphs_by_image(organ='Breast', id=0, outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/')
+    generate_graphs_by_image(organ='Breast', id=48, outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/')
+
+    generate_metrics_report(approach='cnet_e2', indir='/home/modejota/Deep_Var_BCD/results/')
+"""
