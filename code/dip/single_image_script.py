@@ -23,6 +23,7 @@ SAVE_MODEL_GENERATED_IMAGES = args.smgi
 SAVE_IMAGES_FREQUENCY = args.smgi_frequency
 SAVE_WEIGHTS = args.save_weights
 RUN_FROM_WEIGHTS = args.load_weights
+START_FROM_IMAGE_ITSELF = args.use_image_itself
 
 APPROACH_USED = args.approach
 BATCH_SIZE = 1  # Should always be 1
@@ -140,7 +141,11 @@ H_gt_od = H_gt_od.to(device)
 E_gt = E_gt.to(device)
 E_gt_od = E_gt_od.to(device)
 
-input_noise = torch.rand(original_image.shape).unsqueeze(0).to(device)  # Unsqueezed to add the batch dimension, it needs to be ([1, 3, x, y])
+if START_FROM_IMAGE_ITSELF:
+    input = original_image.unsqueeze(0).to(device)
+else:
+    input = torch.rand(original_image.shape).unsqueeze(0).to(device)  # Unsqueezed to add the batch dimension, it needs to be ([1, 3, x, y])
+
 original_tensor = original_image.unsqueeze(0).to(device)
 original_tensor_od = rgb2od(original_tensor).to(device)
 _, _, H, W = original_tensor.shape
@@ -171,11 +176,11 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
 
     if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e3']:
         # Using BCDnet we obtain both the concentration matrix and the colors matrix as well as the colors' variation
-        M_matrix, M_variation, C_matrix = model(input_noise)        
+        M_matrix, M_variation, C_matrix = model(input)        
 
     elif APPROACH_USED == 'cnet_e2':
         # Using Cnet we just obtain the concentration matrix
-        C_matrix = model(input_noise)
+        C_matrix = model(input)
 
         # Generate the colors matrix as a sample of a gaussian distribution given the Ruifrok matrix
         h_matrix, e_matrix = random_ruifrok_matrix_variation(0.05)
