@@ -174,7 +174,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     start_time = time.time()
     optimizer.zero_grad()
 
-    if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e3']:
+    if 'bcdnet' in APPROACH_USED:
         # Using BCDnet we obtain both the concentration matrix and the colors matrix as well as the colors' variation
         M_matrix, M_variation, C_matrix = model(input)        
 
@@ -230,6 +230,15 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
             loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
             metrics_dict['loss_rec'] = np.nan   # Easy filter in the csv file
             metrics_dict['loss_kl'] = np.nan
+
+    elif APPROACH_USED == 'bcdnet_e4':
+        # Calculate the L2 norm along the second dimension (dimension 1) of the reshaped tensor
+        l2_norms = torch.norm(C_matrix.view(1, 2, -1), p=2, dim=1)
+        # Reshape the l2_norms tensor back to the original shape [1, 500, 500]
+        l2_norms = l2_norms.view(1, 500, 500)
+        total_sum = torch.sum(l2_norms)
+        loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od) + total_sum.item()    # Not so sure this is what we talked about
+
 
     loss.backward()
     optimizer.step()
