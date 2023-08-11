@@ -232,12 +232,21 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
             metrics_dict['loss_kl'] = np.nan
 
     elif APPROACH_USED == 'bcdnet_e4':
-        # Calculate the L2 norm along the second dimension (dimension 1) of the reshaped tensor
         l2_norms = torch.norm(C_matrix.view(1, 2, -1), p=2, dim=1)
-        # Reshape the l2_norms tensor back to the original shape [1, 500, 500]
         l2_norms = l2_norms.view(1, 500, 500)
-        total_sum = torch.sum(l2_norms)
-        loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od) + total_sum.item()    # Not so sure this is what we talked about
+        l2_divided = torch.sum(l2_norms).item() / original_tensor.shape[2]
+
+        M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
+        # Calculate the Kullback-Leiber divergence via its closed form
+        loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
+        loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
+        # Re-parametrization trick to sample from the gaussian distribution
+        M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
+
+        Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
+        loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
+
+        loss = loss_rec + l2_divided + loss_kl
 
 
     loss.backward()
