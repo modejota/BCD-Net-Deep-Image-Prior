@@ -234,7 +234,7 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
     elif APPROACH_USED == 'bcdnet_e4':
         l2_norms = torch.norm(C_matrix.view(1, 2, -1), p=2, dim=1)
         l2_norms = l2_norms.view(1, 500, 500)
-        l2_divided = torch.sum(l2_norms).item() / original_tensor.shape[2]
+        l2_divided = torch.sum(l2_norms).item() / (H*W)
 
         M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
         # Calculate the Kullback-Leiber divergence via its closed form
