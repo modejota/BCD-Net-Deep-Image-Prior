@@ -50,10 +50,6 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
 
-if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3']:
-    metrics_dict['loss_rec'] = 0.0
-    metrics_dict['loss_kl'] = 0.0
-
 
 # Create the folder for the results
 folder_route = f'../../results/{APPROACH_USED}/batch_training'
@@ -131,7 +127,7 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
             start_time = time.time()
             optimizer.zero_grad()
 
-            if APPROACH_USED in ['bcdnet_e1', 'bcdnet_e2', 'bcdnet_e3']:
+            if 'bcdnet' in APPROACH_USED:
                 # Using BCDnet we obtain both the concentration matrix and the colors matrix as well as the colors' variation
                 M_matrix, M_variation, C_matrix = model(input)
 
@@ -187,6 +183,27 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
                     loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
                     metrics_dict['loss_rec'] = np.nan   # Easy filter in the csv file
                     metrics_dict['loss_kl'] = np.nan
+            
+            elif APPROACH_USED == 'bcdnet_e4':
+                l2_norms = torch.norm(C_matrix.view(1, 2, -1), p=2, dim=1)
+                l2_norms = l2_norms.view(1, 500, 500)
+                l2_divided = torch.sum(l2_norms).item() / (H*W)
+
+                M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
+                # Calculate the Kullback-Leiber divergence via its closed form
+                loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
+                loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
+                # Re-parametrization trick to sample from the gaussian distribution
+                M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
+
+                Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
+                loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
+
+                loss = loss_rec + l2_divided + loss_kl
+
+                metrics_dict['loss_rec'] = loss_rec.item()
+                metrics_dict['loss_kl'] = loss_kl.item()
+                metrics_dict['loss_l2'] = l2_divided
             
             loss.backward()
             optimizer.step()

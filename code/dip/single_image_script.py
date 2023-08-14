@@ -62,10 +62,6 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
 
-if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4']:
-    metrics_dict['loss_rec'] = 0.0
-    metrics_dict['loss_kl'] = 0.0
-
 folder_route = f'../../results/{APPROACH_USED}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
