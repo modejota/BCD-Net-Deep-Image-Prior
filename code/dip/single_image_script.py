@@ -62,7 +62,7 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
 
-if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3']:
+if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4']:
     metrics_dict['loss_rec'] = 0.0
     metrics_dict['loss_kl'] = 0.0
 
@@ -247,6 +247,10 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
 
         loss = loss_rec + l2_divided + loss_kl
+
+        metrics_dict['loss_rec'] = loss_rec.item()
+        metrics_dict['loss_kl'] = loss_kl.item()
+        metrics_dict['loss_l2'] = l2_divided
 
 
     loss.backward()
