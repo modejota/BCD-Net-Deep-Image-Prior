@@ -51,6 +51,13 @@ metrics_dict = {
 }
 
 
+if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4']:
+    metrics_dict['loss_rec'] = 0.0
+    metrics_dict['loss_kl'] = 0.0
+    if APPROACH_USED == 'bcdnet_e4':
+        metrics_dict['loss_l2'] = 0.0
+
+
 # Create the folder for the results
 folder_route = f'../../results/{APPROACH_USED}/batch_training'
 if not os.path.exists(folder_route):
@@ -160,8 +167,8 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
 
                 loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
 
-                metrics_dict['loss_rec'] = loss_rec.item()
-                metrics_dict['loss_kl'] = loss_kl.item()
+                metrics_dict['loss_rec'] = (1.0 - THETA_VAL)*loss_rec
+                metrics_dict['loss_kl'] = THETA_VAL*loss_kl
 
             elif APPROACH_USED == 'bcdnet_e3':
                 if iteration < COLORITER:
@@ -176,8 +183,8 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
                     loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
                     loss = (1.0 - THETA_VAL_COLORITER)*loss_rec + THETA_VAL_COLORITER*loss_kl
 
-                    metrics_dict['loss_rec'] = loss_rec.item()
-                    metrics_dict['loss_kl'] = loss_kl.item()
+                    metrics_dict['loss_rec'] = (1.0 - THETA_VAL_COLORITER)*loss_rec
+                    metrics_dict['loss_kl'] = THETA_VAL_COLORITER*loss_kl
 
                 else:
                     loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)

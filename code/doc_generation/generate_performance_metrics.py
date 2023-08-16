@@ -46,7 +46,7 @@ def get_model_and_organs_info(csv_filepath, training_type=None):
         tuple: A tuple containing the model name and organ info
     """
     if training_type == 'batch_training':
-        match = re.search(r'(bcdnet_e[123]|cnet_e2).*?(Breast|Colon|Lung)', csv_filepath)
+        match = re.search(r'(bcdnet_e[1234]|cnet_e2).*?(Breast|Colon|Lung)', csv_filepath)
         if match:
             method = match.group(1)
             organ = match.group(2)

@@ -62,11 +62,17 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
 
+if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4']:
+    metrics_dict['loss_rec'] = 0.0
+    metrics_dict['loss_kl'] = 0.0
+    if APPROACH_USED == 'bcdnet_e4':
+        metrics_dict['loss_l2'] = 0.0
+
 folder_route = f'../../results/{APPROACH_USED}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
 
-if not os.path.exists(f'{folder_route}/images'):
+if not os.path.exists(f'{folder_route}/images') and (SAVE_MODEL_GENERATED_IMAGES or SAVE_GROUND_TRUTH_IMAGES):
     os.makedirs(f'{folder_route}/images')
 
 metrics_filepath = f'{folder_route}/metrics.csv'
@@ -202,9 +208,9 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1) 
 
         loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
-
-        metrics_dict['loss_rec'] = loss_rec.item()
-        metrics_dict['loss_kl'] = loss_kl.item()
+        
+        metrics_dict['loss_rec'] = (1.0 - THETA_VAL)*loss_rec
+        metrics_dict['loss_kl'] = THETA_VAL*loss_kl
 
     elif APPROACH_USED == 'bcdnet_e3':
         if iteration < COLORITER:
@@ -219,8 +225,8 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
             loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
             loss = (1.0 - THETA_VAL_COLORITER)*loss_rec + THETA_VAL_COLORITER*loss_kl
             
-            metrics_dict['loss_rec'] = loss_rec.item()
-            metrics_dict['loss_kl'] = loss_kl.item()
+            metrics_dict['loss_rec'] = (1.0 - THETA_VAL_COLORITER)*loss_rec
+            metrics_dict['loss_kl'] = THETA_VAL_COLORITER*loss_kl
 
         else:
             loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
