@@ -167,8 +167,8 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
 
                 loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
 
-                metrics_dict['loss_rec'] = (1.0 - THETA_VAL)*loss_rec
-                metrics_dict['loss_kl'] = THETA_VAL*loss_kl
+                metrics_dict['loss_rec'] = (1.0 - THETA_VAL)*loss_rec.item()
+                metrics_dict['loss_kl'] = THETA_VAL*loss_kl.item()
 
             elif APPROACH_USED == 'bcdnet_e3':
                 if iteration < COLORITER:
@@ -183,12 +183,12 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
                     loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
                     loss = (1.0 - THETA_VAL_COLORITER)*loss_rec + THETA_VAL_COLORITER*loss_kl
 
-                    metrics_dict['loss_rec'] = (1.0 - THETA_VAL_COLORITER)*loss_rec
-                    metrics_dict['loss_kl'] = THETA_VAL_COLORITER*loss_kl
+                    metrics_dict['loss_rec'] = (1.0 - THETA_VAL_COLORITER)*loss_rec.item()
+                    metrics_dict['loss_kl'] = THETA_VAL_COLORITER*loss_kl.item()
 
                 else:
                     loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
-                    metrics_dict['loss_rec'] = np.nan   # Easy filter in the csv file
+                    metrics_dict['loss_rec'] = loss.item()
                     metrics_dict['loss_kl'] = np.nan
             
             elif APPROACH_USED == 'bcdnet_e4':
