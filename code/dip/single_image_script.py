@@ -213,25 +213,25 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         metrics_dict['loss_kl'] = THETA_VAL*loss_kl.item()
 
     elif APPROACH_USED == 'bcdnet_e3':
-        if iteration < COLORITER:
-            M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
-            # Calculate the Kullback-Leiber divergence via its closed form
-            loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
-            loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
-            # Re-parametrization trick to sample from the gaussian distribution
-            M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
+        M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
+        # Calculate the Kullback-Leiber divergence via its closed form
+        loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
+        loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
+        # Re-parametrization trick to sample from the gaussian distribution
+        M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
 
-            Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
-            loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
+        Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
+        loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
+        
+        if iteration < COLORITER:
             loss = (1.0 - THETA_VAL_COLORITER)*loss_rec + THETA_VAL_COLORITER*loss_kl
-            
             metrics_dict['loss_rec'] = (1.0 - THETA_VAL_COLORITER)*loss_rec.item()
             metrics_dict['loss_kl'] = THETA_VAL_COLORITER*loss_kl.item()
 
         else:
-            loss = torch.nn.functional.mse_loss(reconstructed_od, original_tensor_od)
-            metrics_dict['loss_rec'] = loss.item()
-            metrics_dict['loss_kl'] = np.nan
+            loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
+            metrics_dict['loss_rec'] = (1.0 - THETA_VAL)*loss_rec.item()
+            metrics_dict['loss_kl'] = THETA_VAL*loss_kl.item()
 
     elif APPROACH_USED == 'bcdnet_e4':
         l2_norms = torch.norm(C_matrix.view(1, 2, -1), p=2, dim=1)
