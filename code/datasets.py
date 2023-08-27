@@ -159,7 +159,7 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         sv_file = self.sv_files[idx]
         M_gt = loadmat(sv_file)['Stains'].astype(np.float32)
 
-        return img, M_gt, file
+        return img, M_gt
 
     def __len__(self):
         return len(self.image_files)
@@ -171,9 +171,9 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
             M_gt = self.M_gts[idx]
             filepath = self.images_path[idx]
         else:
-            img, M_gt, filepath = self.load_file(idx)
+            img, M_gt = self.load_file(idx)
 
         img = torch.from_numpy(img)
         M_gt = torch.from_numpy(M_gt)
 
-        return img, M_gt, filepath
+        return img, M_gt
