@@ -177,3 +177,6 @@ class WSSBDatasetTest(torch.utils.data.Dataset):
         M_gt = torch.from_numpy(M_gt)
 
         return img, M_gt
+    
+    def get_filepath(self, idx):
+        return self.image_files[idx]
