@@ -4,7 +4,7 @@ args = set_opts()
 import os
 import sys
 os.environ['CUDA_DEVICE_ORDER']="PCI_BUS_ID"
-os.environ['CUDA_VISIBLE_DEVICES']=args.device[-1] if args.device != 'cpu' else ''
+os.environ['CUDA_VISIBLE_DEVICES']=args.device[-1] if args.device is not None and args.device != 'cpu' else ''
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import time
@@ -19,9 +19,13 @@ from utils import od2rgb, rgb2od, random_ruifrok_matrix_variation, direct_deconv
 
 SAVE_WEIGHTS = args.save_weights
 RUN_FROM_WEIGHTS = args.load_weights
-START_FROM_IMAGE_ITSELF = args.use_image_itself
+START_FROM_IMAGE_ITSELF = args.use_image
 
-APPROACH_USED = args.approach
+if args.approach is not None:
+    APPROACH_USED = args.approach
+else:
+    print("Please, specify the approach to train.")
+    sys.exit(199)
 BATCH_SIZE = 1  # Should always be 1
 SIGMA_RUI_SQ =  args.sigma_rui_sq
 LEARNING_RATE = args.lr
@@ -29,37 +33,54 @@ THETA_VAL = args.theta_val
 THETA_VAL_COLORITER = args.theta_val_coloriter
 COLORITER = args.coloriter
 
-ORGAN_LIST = set(args.organs)
+if args.organs is not None:
+    ORGAN_LIST = set(args.organs)
+else:
+    print("Please, specify the organs to train.")
+    sys.exit(199)
 NUM_ITERATIONS = args.iterations
 # Always running on Delfos
 
 torch.manual_seed(0)
-device = torch.device(args.device[:-2] if args.device != 'cpu' else 'cpu')
-if device == 'cuda':    # Try to improve speed as images are always the same size
+device = torch.device(args.device[:-2] if args.device is not None and args.device != 'cpu' else 'cpu')
+if device == 'cuda':    # Try to improve speed as images are always the same size.
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
 print('Using device:', device)
 
 alsubaie_dataset_path = args.wssb_data_path
+if not os.path.exists(alsubaie_dataset_path):
+    print("Dataset not found. Please, check the path.")
+    sys.exit(199)
 
-metrics_dict = { 
-    'epoch' : 0, 'loss': 0.0, 
+metrics_dict = {
+    'epoch' : 0, 'loss': 0.0,
     'mse_rec' : 0.0, 'psnr_rec': 0.0, 'ssim_rec': 0.0,
     'mse_gt_h': 0.0, 'mse_gt_e': 0.0, 'mse_gt': 0.0,
     'psnr_gt_h': 0.0, 'psnr_gt_e': 0.0, 'psnr_gt': 0.0,
-    'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
+    'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0
 }
 
 
-if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4']:
+if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4L1', 'bcdnet_e4L2']:
     metrics_dict['loss_rec'] = 0.0
     metrics_dict['loss_kl'] = 0.0
-    if APPROACH_USED == 'bcdnet_e4':
+    if APPROACH_USED == 'bcdnet_e4L1':
+        metrics_dict['loss_l1'] = 0.0
+    elif APPROACH_USED == 'bcdnet_e4L2':
         metrics_dict['loss_l2'] = 0.0
 
 
-# Create the folder for the results
-folder_route = f'../../results/{APPROACH_USED}/batch_training'
+intermediate_folder = f'{APPROACH_USED}'
+if APPROACH_USED == 'bcdnet_e2':
+    intermediate_folder += f'_theta{THETA_VAL}'
+elif APPROACH_USED == 'bcdnet_e3':
+    intermediate_folder += f'_theta{THETA_VAL}_thetacolor_{THETA_VAL_COLORITER}_coloriters{COLORITER}'
+intermediate_folder += '_fromimage' if START_FROM_IMAGE_ITSELF else '_fromnoise'
+if RUN_FROM_WEIGHTS:
+    intermediate_folder += '_fromweights'
+
+folder_route = f'../../results/{intermediate_folder}/batch_training/'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
 
@@ -68,6 +89,9 @@ if not os.path.exists(folder_route + '/metrics'):
 
 if RUN_FROM_WEIGHTS and APPROACH_USED != 'cnet_e2':
     pretrained_weights_filepath = args.load_weights_path
+    if not os.path.exists(pretrained_weights_filepath):
+        print("Pretrained weights not found. Please, check the path.")
+        sys.exit(199)
 
 ruifrok_matrix = torch.tensor([
                     [0.6442, 0.0928],
@@ -84,6 +108,7 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
     # Train the model and evaluate for each image
     for index, (image, M_gt) in tqdm(enumerate(dataset), desc="Images", unit="image", leave=False):
         image = image.to(device)
+        img_od = rgb2od(image)
 
         if 'bcdnet' in APPROACH_USED:
             model = BCDnet(cnet_name='unet_64_6', mnet_name='mobilenetv3s_50').to(device)
@@ -94,12 +119,13 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
 
         # We only have general pretrained weights for BCDNET. If want to fine-tune for an specific image, use the other script.
         if RUN_FROM_WEIGHTS:
-            model.load_state_dict(torch.load(pretrained_weights_filepath))
+            model.load_state_dict(torch.load(pretrained_weights_filepath, map_location=device))
 
         optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+        model.train()
 
         if START_FROM_IMAGE_ITSELF:
-            input = image.unsqueeze(0).to(device)
+            input = img_od.unsqueeze(0).to(device)
         else:
             input = torch.rand(image.shape).unsqueeze(0).to(device)  # Unsqueezed to add the batch dimension, it needs to be ([1, 3, x, y])
 
@@ -115,19 +141,16 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
             file.write(header)
 
         # Generate the ground truth images
-        C_gt = direct_deconvolution(rgb2od(image), M_gt).unsqueeze(0) # (1, 2, H, W)
+        C_gt = direct_deconvolution(img_od, M_gt).unsqueeze(0) # (1, 2, H, W)
         M_gt = M_gt.unsqueeze(0) # (1, 3, 2)
 
         gt_od = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)
         H_gt_od = gt_od[:,0,:,:]
-        H_gt = torch.clamp(od2rgb(H_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
+        H_gt = torch.clamp(od2rgb(H_gt_od), 0.0, 255.0).to(device) # (batch_size, 3, H, W)
         E_gt_od = gt_od[:,1,:,:]
-        E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
-
-        H_gt = H_gt.to(device)
+        E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0).to(device) # (batch_size, 3, H, W)
         H_gt_od = H_gt_od.to(device)
-        E_gt = E_gt.to(device)
-        E_gt_od = E_gt_od.to(device)            
+        E_gt_od = E_gt_od.to(device)
 
         for iteration in tqdm(range(1, NUM_ITERATIONS+1), desc="Iterations", unit="iteration", leave=False):
 
@@ -159,11 +182,11 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
                 # Calculate the Kullback-Leiber divergence via its closed form
                 loss_kl = (0.5 / SIGMA_RUI_SQ) * torch.nn.functional.mse_loss(M_matrix, ruifrok_matrix, reduction='none') + 1.5 * (M_variation / SIGMA_RUI_SQ - torch.log(M_variation / SIGMA_RUI_SQ) - 1) # (batch_size, 3, 2)
                 loss_kl = torch.sum(loss_kl) / BATCH_SIZE # (1)
-                # Re-parametrization trick to sample from the gaussian distribution 
+                # Re-parametrization trick to sample from the gaussian distribution
                 M_sample = M_matrix + torch.sqrt(M_variation) * torch.randn_like(M_matrix) # (batch_size, 3, 2)
 
                 Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
-                loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1) 
+                loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
 
                 loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
 
@@ -180,7 +203,7 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
 
                 Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
                 loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
-                
+
                 if iteration < COLORITER:
                     loss = (1.0 - THETA_VAL_COLORITER)*loss_rec + THETA_VAL_COLORITER*loss_kl
                     metrics_dict['loss_rec'] = (1.0 - THETA_VAL_COLORITER)*loss_rec.item()
@@ -190,11 +213,14 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
                     loss = (1.0 - THETA_VAL)*loss_rec + THETA_VAL*loss_kl
                     metrics_dict['loss_rec'] = (1.0 - THETA_VAL)*loss_rec.item()
                     metrics_dict['loss_kl'] = THETA_VAL*loss_kl.item()
-            
-            elif APPROACH_USED == 'bcdnet_e4':
-                l2_norms = torch.norm(C_matrix.view(1, 2, -1), p=2, dim=1)
-                l2_norms = l2_norms.view(1, 500, 500)
-                l2_divided = torch.sum(l2_norms).item() / (H*W)
+
+            elif 'bcdnet_e4' in APPROACH_USED:
+                if APPROACH_USED == 'bcdnet_e4L1':
+                    l_norm = torch.sum(torch.abs(C_matrix), dim=1).sum().item() / (H*W)
+                    metrics_dict['loss_l1'] = l_norm
+                elif APPROACH_USED == 'bcdnet_e4L2':
+                    l_norm = torch.sqrt(torch.sum(C_matrix ** 2, dim=1)).sum().item() / (H*W)
+                    metrics_dict['loss_l2'] = l_norm
 
                 M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
                 # Calculate the Kullback-Leiber divergence via its closed form
@@ -206,12 +232,11 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
                 Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
                 loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
 
-                loss = loss_rec + l2_divided + loss_kl
+                loss = loss_rec + loss_kl + l_norm
 
                 metrics_dict['loss_rec'] = loss_rec.item()
                 metrics_dict['loss_kl'] = loss_kl.item()
-                metrics_dict['loss_l2'] = l2_divided
-            
+
             loss.backward()
             optimizer.step()
 
@@ -252,9 +277,10 @@ for organ in tqdm(ORGAN_LIST, desc="Organs", unit="organ"):
 
         # Save weights at the end in case we want to train further from this point.
         if SAVE_WEIGHTS:
-            if not os.path.exists(folder_route + '/weights'):
-                os.makedirs(folder_route + '/weights')
-            save_weights_filepath = folder_route + f"/weights/{organ}_{index}_iteration_{NUM_ITERATIONS}.pt"
+            save_weights_folderpath = f'{folder_route}/weights' if args.save_weights_folderpath is None else args.save_weights_folderpath
+            if not os.path.exists(save_weights_folderpath):
+                os.makedirs(save_weights_folderpath)
+            save_weights_filepath = save_weights_folderpath + f"/{organ}_{index}_iteration_{NUM_ITERATIONS}.pt"
             if os.path.exists(save_weights_filepath):
                 new_number_iterations = int(save_weights_filepath.split('_')[-1].split('.')[0]) + NUM_ITERATIONS
                 save_weights_filepath = folder_route + f"/weights/{organ}_{index}_iteration_{new_number_iterations}.pt"

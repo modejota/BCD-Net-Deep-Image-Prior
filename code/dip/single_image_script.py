@@ -4,7 +4,7 @@ args = set_opts()
 import os
 import sys
 os.environ['CUDA_DEVICE_ORDER']="PCI_BUS_ID"
-os.environ['CUDA_VISIBLE_DEVICES']=args.device[-1] if args.device != 'cpu' else ''
+os.environ['CUDA_VISIBLE_DEVICES']=args.device[-1] if args.device is not None and args.device != 'cpu' else ''
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import time
@@ -23,9 +23,13 @@ SAVE_MODEL_GENERATED_IMAGES = args.smgi
 SAVE_IMAGES_FREQUENCY = args.smgi_frequency
 SAVE_WEIGHTS = args.save_weights
 RUN_FROM_WEIGHTS = args.load_weights
-START_FROM_IMAGE_ITSELF = args.use_image_itself
+START_FROM_IMAGE_ITSELF = args.use_image
 
-APPROACH_USED = args.approach
+if args.approach is not None:
+    APPROACH_USED = args.approach
+else:
+    print("Please, specify the approach to train.")
+    sys.exit(199)
 BATCH_SIZE = 1  # Should always be 1
 SIGMA_RUI_SQ = args.sigma_rui_sq
 LEARNING_RATE = args.lr
@@ -40,17 +44,21 @@ torch.manual_seed(0)
 plt.rcParams['font.size'] = 14
 plt.rcParams['toolbar'] = 'None'
 
-device = torch.device(args.device[:-2] if args.device != 'cpu' else 'cpu')
-if device == 'cuda':    # Try to improve speed as images are always the same size
+device = torch.device(args.device[:-2] if args.device is not None and args.device != 'cpu' else 'cpu')
+if device == 'cuda':    # Try to improve speed as images are always the same size.
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
 print('Using device:', device)
 
 alsubaie_dataset_path = args.wssb_data_path
-
-dataset = WSSBDatasetTest(alsubaie_dataset_path, organ_list=[ORGAN], load_at_init=False)
+try:
+    dataset = WSSBDatasetTest(alsubaie_dataset_path, organ_list=[ORGAN], load_at_init=False)
+except Exception as e:
+    print("Dataset not found. Please, check the path.")
+    sys.exit(199)
 original_image, M_gt = dataset[IMAGE_TO_LOAD]
-print('Image shape:', original_image.shape)
+print(f"Image {ORGAN} {IMAGE_TO_LOAD} loaded. Shape: {original_image.shape}")
+print(f"Path of the image: {dataset.get_filepath(IMAGE_TO_LOAD)}")
 
 NUM_ITERATIONS = args.iterations
 
@@ -62,13 +70,24 @@ metrics_dict = {
     'ssim_gt_h': 0.0, 'ssim_gt_e': 0.0, 'ssim_gt': 0.0, 'time': 0.0    
 }
 
-if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4']:
+if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4L1', 'bcdnet_e4L2']:
     metrics_dict['loss_rec'] = 0.0
     metrics_dict['loss_kl'] = 0.0
-    if APPROACH_USED == 'bcdnet_e4':
+    if APPROACH_USED == 'bcdnet_e4L1':
+        metrics_dict['loss_l1'] = 0.0
+    elif APPROACH_USED == 'bcdnet_e4L2':
         metrics_dict['loss_l2'] = 0.0
 
-folder_route = f'../../results/{APPROACH_USED}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
+intermediate_folder = f'{APPROACH_USED}'
+if APPROACH_USED == 'bcdnet_e2':
+    intermediate_folder += f'_theta{THETA_VAL}'
+elif APPROACH_USED == 'bcdnet_e3':
+    intermediate_folder += f'_theta{THETA_VAL}_thetacolor_{THETA_VAL_COLORITER}_coloriters{COLORITER}'
+intermediate_folder += '_fromimage' if START_FROM_IMAGE_ITSELF else '_fromnoise'
+if RUN_FROM_WEIGHTS:
+    intermediate_folder += '_fromweights'
+
+folder_route = f'../../results/{intermediate_folder}/per_image_training/{ORGAN}_{IMAGE_TO_LOAD}'
 if not os.path.exists(folder_route):
     os.makedirs(folder_route)
 
@@ -91,25 +110,27 @@ ruifrok_matrix = torch.tensor([
 ruifrok_matrix = ruifrok_matrix.repeat(BATCH_SIZE, 1, 1).to(device)  # (batch_size, 3, 2)
 
 # Generate all images derivated from the ground truth.
-img_np = original_image.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
 img_od = rgb2od(original_image)
 
 C_gt = direct_deconvolution(img_od, M_gt).unsqueeze(0) # (1, 2, H, W)
 M_gt = M_gt.unsqueeze(0) # (1, 3, 2)
 
-C_H_gt_np = C_gt[:, 0, :, :].squeeze().numpy() # (H, W)
-C_E_gt_np = C_gt[:, 1, :, :].squeeze().numpy() # (H, W)
-
 gt_od = torch.einsum('bcs,bshw->bschw', M_gt, C_gt)
 H_gt_od = gt_od[:,0,:,:]
-H_gt = torch.clamp(od2rgb(H_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
+H_gt = torch.clamp(od2rgb(H_gt_od), 0.0, 255.0).to(device) # (batch_size, 3, H, W)
 E_gt_od = gt_od[:,1,:,:]
-E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0) # (batch_size, 3, H, W)
-
-H_gt_np = H_gt.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
-E_gt_np = E_gt.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
+E_gt = torch.clamp(od2rgb(E_gt_od), 0.0, 255.0).to(device) # (batch_size, 3, H, W)
+H_gt_od = H_gt_od.to(device)
+E_gt_od = E_gt_od.to(device)
 
 if SAVE_GROUND_TRUTH_IMAGES:
+    
+    img_np = original_image.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
+    C_H_gt_np = C_gt[:, 0, :, :].squeeze().numpy() # (H, W)
+    C_E_gt_np = C_gt[:, 1, :, :].squeeze().numpy() # (H, W)
+    H_gt_np = H_gt.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
+    E_gt_np = E_gt.squeeze().detach().cpu().numpy().transpose(1, 2, 0).astype('uint8')
+    
     fig, ax = plt.subplots(1, 5, figsize=(20, 5))
 
     ax[0].imshow(img_np)
@@ -137,14 +158,8 @@ if SAVE_GROUND_TRUTH_IMAGES:
     plt.savefig(f'{folder_route}/images/ground_truth_image.png', transparent=True)
     plt.close()
 
-# Move to GPU, we gonna need it later during traning for metrics' calculation.
-H_gt = H_gt.to(device)
-H_gt_od = H_gt_od.to(device)
-E_gt = E_gt.to(device)
-E_gt_od = E_gt_od.to(device)
-
 if START_FROM_IMAGE_ITSELF:
-    input = original_image.unsqueeze(0).to(device)
+    input = img_od.unsqueeze(0).to(device)
 else:
     input = torch.rand(original_image.shape).unsqueeze(0).to(device)  # Unsqueezed to add the batch dimension, it needs to be ([1, 3, x, y])
 
@@ -160,15 +175,17 @@ else:
     raise Exception('Approach not found.')
 
 
-if RUN_FROM_WEIGHTS and APPROACH_USED != 'cnet2':
+if RUN_FROM_WEIGHTS and APPROACH_USED != 'cnet_e2':
     weightsfile = args.load_weights_path
     if os.path.isfile(weightsfile):
         print(f'Loading weights from {weightsfile}')
     else:
-        raise Exception(f'Weights file {weightsfile} not found.')
-    model.load_state_dict(torch.load(weightsfile))
+        print(f'Weights file {weightsfile} not found.')
+        sys.exit(199)
+    model.load_state_dict(torch.load(weightsfile, map_location=device))
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+model.train()
 
 loop_data = range(1, NUM_ITERATIONS+1)
 for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
@@ -233,10 +250,13 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
             metrics_dict['loss_rec'] = (1.0 - THETA_VAL)*loss_rec.item()
             metrics_dict['loss_kl'] = THETA_VAL*loss_kl.item()
 
-    elif APPROACH_USED == 'bcdnet_e4':
-        l2_norms = torch.norm(C_matrix.view(1, 2, -1), p=2, dim=1)
-        l2_norms = l2_norms.view(1, 500, 500)
-        l2_divided = torch.sum(l2_norms).item() / (H*W)
+    elif 'bcdnet_e4' in APPROACH_USED:
+        if APPROACH_USED == 'bcdnet_e4L1':
+            l_norm = torch.sum(torch.abs(C_matrix), dim=1).sum().item() / (H*W)
+            metrics_dict['loss_l1'] = l_norm
+        elif APPROACH_USED == 'bcdnet_e4L2':
+            l_norm = torch.sqrt(torch.sum(C_matrix ** 2, dim=1)).sum().item() / (H*W)
+            metrics_dict['loss_l2'] = l_norm
 
         M_variation = M_variation.repeat(1, 3, 1)   # (batch_size, 3, 2)
         # Calculate the Kullback-Leiber divergence via its closed form
@@ -248,12 +268,10 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         Y_rec = torch.einsum('bcs,bshw->bchw', M_sample, C_matrix) # (batch_size, 3, H, W)
         loss_rec = torch.sum(torch.nn.functional.mse_loss(Y_rec, original_tensor_od)) / BATCH_SIZE # (1)
 
-        loss = loss_rec + l2_divided + loss_kl
+        loss = loss_rec + loss_kl + l_norm
 
         metrics_dict['loss_rec'] = loss_rec.item()
         metrics_dict['loss_kl'] = loss_kl.item()
-        metrics_dict['loss_l2'] = l2_divided
-
 
     loss.backward()
     optimizer.step()
@@ -328,9 +346,11 @@ for iteration in tqdm(loop_data, desc="Processing image", unit="item"):
         plt.close()
 
 # Save weights at the end in case we want to train further from this point.
-# No custom filepath can be specified from args for the sake of simplicity and to avoid overwriting weights.
 if SAVE_WEIGHTS:
-    save_weights_filepath = f'{folder_route}/iteration_{NUM_ITERATIONS}.pt'
+    save_weights_folderpath = f'{folder_route}' if args.save_weights_folderpath is None else args.save_weights_folderpath
+    if not os.path.exists(save_weights_folderpath):
+        os.makedirs(save_weights_folderpath)
+    save_weights_filepath = f'{save_weights_folderpath}/iteration_{NUM_ITERATIONS}.pt'
     if os.path.exists(save_weights_filepath):
         new_number_iterations = int(save_weights_filepath.split('_')[-1].split('.')[0]) + NUM_ITERATIONS
         save_weights_filepath = f'{folder_route}/iteration_{new_number_iterations}.pt'
