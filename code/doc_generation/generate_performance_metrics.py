@@ -4,7 +4,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 def get_csv_filepaths(directory_path='/home/modejota/Deep_Var_BCD/results/results_reduced_datasets/', training_type=None):
-    """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories for individual image training
+    """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories.
     Args:
         directory_path (str): The path to the directory
         training_type (str): The type of training to use. It can be "per_image_training" or "batch_training"
@@ -98,7 +98,7 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
         os.makedirs(outdir)
 
     csv_files = get_csv_filepaths(indir, training_type=training_type)
-    print(f'Found {len(csv_files)} CSV files.')
+    # print(f'Found {len(csv_files)} CSV files.')
     if len(csv_files) == 0:
         return
 
@@ -154,7 +154,7 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results/',
 
 def generate_graphs_by_image(organ: str, id: int, 
                              indir ='/home/modejota/Deep_Var_BCD/results_reduced_datasets/',
-                             outdir='/home/modejota/Deep_Var_BCD/results/graphs/',
+                             outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/',
                              training_type='per_image_training',
                              metrics_to_use=["psnr", "mse", "ssim"]):
     """Generate one graph for each image and metric given a directory containing the CSV files with the metrics for a set of approaches
@@ -176,7 +176,8 @@ def generate_graphs_by_image(organ: str, id: int,
     csv_files.sort()
 
     num_files = len(csv_files)
-    print(f'Found {num_files} CSV files for {organ}_{id}.')
+    # print(f'Found {num_files} CSV files for {organ}_{id}.')
+    print(f'Generating graphs for {organ}_{id}.')
     if num_files == 0:
         return
 
@@ -187,7 +188,7 @@ def generate_graphs_by_image(organ: str, id: int,
         num_rows = num_files // num_columns
         num_rows, num_columns = num_columns, num_rows
 
-        fig, axs = plt.subplots(num_rows, num_columns, figsize=(6*num_columns, 5 * num_rows))
+        fig, axs = plt.subplots(num_rows, num_columns, figsize=(10*num_columns, 5 * num_rows))
 
         for i, csv_file in enumerate(csv_files):
             model, _ = get_model_and_organs_info(csv_file, training_type='per_image_training')
@@ -212,12 +213,20 @@ def generate_graphs_by_image(organ: str, id: int,
         plt.savefig(os.path.join(outdir, f'{organ}_{id}_{metric.upper()}.png'))
         plt.close()
 
-def generate_metrics_report(approach: str, indir='/home/modejota/Deep_Var_BCD/results/', 
-                            outdir='/home/modejota/Deep_Var_BCD/results/', 
-                            organs=["Colon", "Breast", "Lung"], metrics_to_use=["psnr", "mse", "ssim"]):
+def generate_metrics_report(approach: str, 
+                            indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', 
+                            outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/', 
+                            organs=["Colon", "Breast", "Lung"], 
+                            training_type='batch_training', 
+                            metrics_to_use=["psnr", "mse", "ssim"],
+                            use_inner_directory=True):
+    
     indir += os.sep if indir[-1] != os.sep else ''
     outdir += os.sep if outdir[-1] != os.sep else ''
-    outdir_approach = f'{outdir}{approach}/batch_training' + os.sep if approach[-1] != os.sep else f'{outdir}{approach}/batch_training/'
+    if use_inner_directory:
+        outdir_approach = f'{outdir}{approach}/batch_training' + os.sep if approach[-1] != os.sep else f'{outdir}{approach}/batch_training/'
+    else:
+        outdir_approach = outdir
     if not os.path.exists(outdir_approach):
         os.makedirs(outdir_approach)
 
@@ -225,14 +234,15 @@ def generate_metrics_report(approach: str, indir='/home/modejota/Deep_Var_BCD/re
     csv_files = get_csv_filepaths(approach_path, training_type='batch_training')
     csv_files.sort()
 
-    print(f'Found {len(csv_files)} CSV files for {approach}.')
+    # print(f'Found {len(csv_files)} CSV files for {approach}.')
+    print(f'Generating metrics report for {approach}.')
     if len(csv_files) == 0:
         return
     
     # Generate a map with the filenames for each organ
     organ_files = {organ: [] for organ in organs}
     for filename in csv_files:
-        _, organ_info = get_model_and_organs_info(filename, training_type='batch_training')
+        _, organ_info = get_model_and_organs_info(filename, training_type=training_type)
         organ_files[organ_info].append(filename)
           
     metrics_per_organ = {organ: {metric: [] for metric in metrics_to_use} for organ in organs}
@@ -263,18 +273,18 @@ def generate_metrics_report(approach: str, indir='/home/modejota/Deep_Var_BCD/re
                 f.write(f'\t{metric.upper()}_GT_E: {metrics_per_organ[organ][metric][0][2]} ± {metrics_per_organ[organ][metric][1][2]}\n')
             f.write('\n\n')
 
-def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/results_full_datasets/',  outdir='/home/modejota/Deep_Var_BCD/results_metrics/'):
+def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/results_full_datasets/',  outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/'):
     directorios = []
 
     for nombre in os.listdir(indir):
         ruta_completa = os.path.join(indir, nombre)
-        if os.path.isdir(ruta_completa):
+        if os.path.isdir(ruta_completa) and not ruta_completa.endswith('graphs'):
             directorios.append(ruta_completa)
 
     for ruta_completa in directorios:
-        generate_metrics_report(os.path.basename(ruta_completa), indir, outdir)
+        generate_metrics_report(os.path.basename(ruta_completa), indir, outdir, use_inner_directory=False)
 
-EXECUTE_SAMPLES = False
+EXECUTE_SAMPLES = True
 if __name__ == "__main__":
 
     if EXECUTE_SAMPLES:
@@ -289,5 +299,5 @@ if __name__ == "__main__":
         generate_graphs_by_image(organ='Breast', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
         generate_graphs_by_image(organ='Breast', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
         
-        print("Generating metrics' report for all methods.")
-        generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/results_full_datasets/',  outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/')
+        print("\nGenerating metrics' report for all methods.")
+        generate_metric_report_all_methods()
