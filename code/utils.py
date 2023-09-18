@@ -1,5 +1,7 @@
+import os
 import sys
 import torch
+import shutil
 import numpy as np
 from tkinter import Tk, filedialog
 
@@ -164,3 +166,43 @@ def askforPyTorchWeightsviaGUI(initialdirectory="."):
         print(f'No se ha seleccionado ningún archivo.')
         sys.exit(102)
     return weights
+
+def generate_reduced_dataset_from_full_dataset(
+        directorio_origen = '/home/modejota/Deep_Var_BCD/results_full_datasets/',
+        directorio_destino = '/home/modejota/Deep_Var_BCD/results_reduced_datasets/',
+        archivos_a_copiar = ['Colon_0.csv', 'Colon_6.csv', 'Lung_0.csv', 'Lung_48.csv', 'Breast_0.csv', 'Breast_48.csv']
+):
+    """
+    Copia archivos desde el directorio de origen al directorio de destino y elimina
+    los archivos que no tengan nombres especificados en la lista de nombres permitidos.
+    Esencialmente, genera un subconjunto de un conjunto de datos.
+    
+    :param directorio_origen: Ruta al directorio de origen.
+    :param directorio_destino: Ruta al directorio de destino.
+    :param archivos_a_copiar: Lista de nombres de archivos permitidos.
+    """
+
+    if not os.path.exists(directorio_origen):
+        print(f'El directorio de origen <{directorio_origen}> no existe.')
+        return
+
+    if not os.path.exists(directorio_destino):
+        os.makedirs(directorio_destino)
+
+    for root, _, files in os.walk(directorio_origen):
+        # Construye la ruta correspondiente en el directorio de destino
+        ruta_destino = os.path.join(directorio_destino, os.path.relpath(root, directorio_origen))
+        
+        # Crea el directorio en el destino si no existe
+        os.makedirs(ruta_destino, exist_ok=True)
+        
+        for file in files:
+            ruta_origen = os.path.join(root, file)
+            ruta_destino_archivo = os.path.join(ruta_destino, file)
+            
+            if file not in archivos_a_copiar:
+                # Elimina el archivo si no está en la lista
+                os.remove(ruta_origen)
+            else:
+                # Copia el archivo al directorio de destino
+                shutil.copy2(ruta_origen, ruta_destino_archivo)
