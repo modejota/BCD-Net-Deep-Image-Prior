@@ -315,7 +315,17 @@ def generate_metrics_report(approach: str,
                             training_type='batch_training', 
                             metrics_to_use=["psnr", "mse", "ssim"],
                             use_inner_directory=True):
-    
+    """
+    Generate a report with the metrics for each organ and across all dataset for a given approach (represented by its directory).
+    Args:
+        approach (str): The name of the approach
+        indir (str): The path to the directory containing the CSV files
+        outdir (str): The path to the directory where the report will be saved
+        organs (list): A list containing the organs to use. Colon, Breast and Lung are the only valid options
+        training_type (str): The type of training that was done. It can be "per_image_training" or "batch_training". The middle directory name must match this value
+        metrics_to_use (list): A list containing the metrics to use. psnr, mse and ssim are the only valid options
+        use_inner_directory (bool): Whether to use the inner directory or not. If True, the report will be saved in outdir/approach/batch_training. If False, the report will be saved in outdir
+    """
     indir += os.sep if indir[-1] != os.sep else ''
     outdir += os.sep if outdir[-1] != os.sep else ''
     if use_inner_directory:
@@ -357,18 +367,38 @@ def generate_metrics_report(approach: str,
             metrics_per_organ[organ][metric] = np.array(metrics_per_organ[organ][metric])
             metrics_per_organ[organ][metric] = (metrics_per_organ[organ][metric].mean(axis=0), metrics_per_organ[organ][metric].std(axis=0))
 
+    sum_mean_metrics = { metric: np.zeros(3) for metric in metrics_to_use }
+    sum_std_metrics = { metric: np.zeros(3) for metric in metrics_to_use }
     # Save the values into a text file
     with open(os.path.join(outdir_approach, f'{approach}_metrics.txt'), 'w') as f:
         # print("Saving metrics' report in", os.path.join(outdir_approach, f'{approach}_metrics.txt'))
         for organ in organs:
             f.write(f'Organ: {organ}\n')
             for metric in metrics_to_use:
-                f.write(f'\t{metric.upper()}: {metrics_per_organ[organ][metric][0][0]} ± {metrics_per_organ[organ][metric][1][0]}\n')
-                f.write(f'\t{metric.upper()}_GT_H: {metrics_per_organ[organ][metric][0][1]} ± {metrics_per_organ[organ][metric][1][1]}\n')
-                f.write(f'\t{metric.upper()}_GT_E: {metrics_per_organ[organ][metric][0][2]} ± {metrics_per_organ[organ][metric][1][2]}\n')
+                f.write(f'\t{metric.upper()}: {"{:.3f}".format(metrics_per_organ[organ][metric][0][0])} ± {"{:.3f}".format(metrics_per_organ[organ][metric][1][0])}\n')
+                f.write(f'\t{metric.upper()}_GT_H: {"{:.3f}".format(metrics_per_organ[organ][metric][0][1])} ± {"{:.3f}".format(metrics_per_organ[organ][metric][1][1])}\n')
+                f.write(f'\t{metric.upper()}_GT_E: {"{:.3f}".format(metrics_per_organ[organ][metric][0][2])} ± {"{:.3f}".format(metrics_per_organ[organ][metric][1][2])}\n')
+
+                sum_mean_metrics[metric] += metrics_per_organ[organ][metric][0]
+                sum_std_metrics[metric] += metrics_per_organ[organ][metric][1]
+
             f.write('\n\n')
 
+        f.write('Mean values across all dataset\n')
+        for metric in metrics_to_use:
+            f.write(f'\t{metric.upper()}: {"{:.3f}".format(sum_mean_metrics[metric][0] / len(organs))} ± {"{:.3f}".format(sum_std_metrics[metric][0] / len(organs))}\n')
+            f.write(f'\t{metric.upper()}_GT_H: {"{:.3f}".format(sum_mean_metrics[metric][1] / len(organs))} ± {"{:.3f}".format(sum_std_metrics[metric][1] / len(organs))}\n')
+            f.write(f'\t{metric.upper()}_GT_E: {"{:.3f}".format(sum_mean_metrics[metric][2] / len(organs))} ± {"{:.3f}".format(sum_std_metrics[metric][2] / len(organs))}\n')
+
+        f.write('\n\n')
+
 def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/results_full_datasets/',  outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/'):
+    """
+    Wrapper method to generate the metrics' report for all methods.
+    Args:
+        indir (str): The path to the directory containing the subdirectory with the CSV files
+        outdir (str): The path to the directory where the reports will be saved
+    """
     directorios = []
 
     for nombre in os.listdir(indir):
@@ -379,22 +409,21 @@ def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/result
     for ruta_completa in directorios:
         generate_metrics_report(os.path.basename(ruta_completa), indir, outdir, use_inner_directory=False)
 
-EXECUTE_SAMPLES = False
+EXECUTE_SAMPLES = True
 if __name__ == "__main__":
 
     if EXECUTE_SAMPLES:
-        print("\nGenerating graphs for all approaches and selected images.")
-        generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/graphs/', training_type='batch_training')
         
+        print("\nGenerating graphs for all approaches and selected images.")
+        generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_approach/', training_type='batch_training')
         
         print("\nGenerating graphs for selected images.")
-        generate_graphs_by_image_v2(organ='Colon', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
-        generate_graphs_by_image_v2(organ='Colon', id=6, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
-        generate_graphs_by_image_v2(organ='Lung', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
-        generate_graphs_by_image_v2(organ='Lung', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
-        generate_graphs_by_image_v2(organ='Breast', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
-        generate_graphs_by_image_v2(organ='Breast', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_full_datasets/graphs/', training_type='batch_training')
-        
+        generate_graphs_by_image_v2(organ='Colon', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
+        generate_graphs_by_image_v2(organ='Colon', id=6, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
+        generate_graphs_by_image_v2(organ='Lung', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
+        generate_graphs_by_image_v2(organ='Lung', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
+        generate_graphs_by_image_v2(organ='Breast', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
+        generate_graphs_by_image_v2(organ='Breast', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
 
         print("\nGenerating metrics' report for all methods.")
         generate_metric_report_all_methods()
