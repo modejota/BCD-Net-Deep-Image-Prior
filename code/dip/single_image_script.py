@@ -73,12 +73,12 @@ metrics_dict = {
 if APPROACH_USED in ['bcdnet_e2', 'bcdnet_e3', 'bcdnet_e4L1', 'bcdnet_e4L2']:
     metrics_dict['loss_rec'] = 0.0
     metrics_dict['loss_kl'] = 0.0
-    if APPROACH_USED == 'bcdnet_e4L1':
+    if 'L1' in APPROACH_USED :
         metrics_dict['loss_l1'] = 0.0
-    elif APPROACH_USED == 'bcdnet_e4L2':
+    elif 'L2' in APPROACH_USED:
         metrics_dict['loss_l2'] = 0.0
 
-intermediate_folder = f'{APPROACH_USED}'
+intermediate_folder = f'{APPROACH_USED}_lr{LEARNING_RATE}'
 if APPROACH_USED == 'bcdnet_e2':
     intermediate_folder += f'_theta{THETA_VAL}'
 elif APPROACH_USED == 'bcdnet_e3':
