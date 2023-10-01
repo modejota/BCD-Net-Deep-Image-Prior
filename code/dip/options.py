@@ -34,5 +34,8 @@ def set_opts():
     parser.add_argument('--theta_val', type=float, default=0.5, help="Value of theta (ponderation between rec and kl losses). (1-theta)*rec_loss + theta*kl_loss.")
     parser.add_argument('--theta_val_coloriter', type=float, default=0.99, help="Value of theta (ponderation between rec and kl losses) for the coloriter iterations. (1-theta)*rec_loss + theta*kl_loss. Only in BCDNET_E3.")
 
+    parser.add_argument('--use_lrscheduler', action='store_true', help="Use a learning rate scheduler")
+    
+
     args = parser.parse_args()
     return args

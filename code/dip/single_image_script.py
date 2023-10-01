@@ -40,6 +40,8 @@ COLORITER = args.coloriter
 ORGAN = args.organ
 IMAGE_TO_LOAD = args.image_id
 
+USE_LR_SCHEDULER = args.use_lrscheduler
+
 torch.manual_seed(0)
 plt.rcParams['font.size'] = 14
 plt.rcParams['toolbar'] = 'None'
@@ -185,6 +187,8 @@ if RUN_FROM_WEIGHTS and APPROACH_USED != 'cnet_e2':
     model.load_state_dict(torch.load(weightsfile, map_location=device))
 
 optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE)
+if USE_LR_SCHEDULER:
+    scheduler = torch.optim.ReduceLROnPlateau(optimizer, mode='min', factor=0.5, patience=10, verbose=True)
 model.train()
 
 loop_data = range(1, NUM_ITERATIONS+1)
