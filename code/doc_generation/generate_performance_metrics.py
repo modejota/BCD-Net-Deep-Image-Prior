@@ -438,6 +438,11 @@ def generate_metric_report_for_a_single_image(csv_file, results_file=None, metri
             f.write(f'{metric.upper()}_GT_H: {value_gt_h}\n')
             f.write(f'{metric.upper()}_GT_E: {value_gt_e}\n\n')
 
+    times = df['time']
+    with open(results_file, 'a') as f:
+        f.write(f'Mean time per iteration: {"{:.3f}".format(times.mean())} ± {"{:.3f}".format(times.std())} milliseconds\n')
+        f.write(f'Total time: {"{:.3f}".format(times.sum())} milliseconds\n\n')
+
 def generate_metric_report_for_a_directory(directory_path, metrics_to_use=['psnr', 'mse', 'ssim'], training_type='batch_training'):
     """
     Method to generate a simple report for a certain directory.
