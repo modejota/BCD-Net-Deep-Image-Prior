@@ -411,12 +411,13 @@ def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/result
     for ruta_completa in directorios:
         generate_metrics_report(os.path.basename(ruta_completa), indir, outdir, use_inner_directory=False)
 
-def generate_metric_report_for_a_single_image(csv_file, results_file=None, metrics_to_use=['psnr', 'mse', 'ssim']):
+def generate_metric_report_for_a_single_image(csv_file, results_file=None, reference_iteration=[1500,2000], metrics_to_use=['psnr', 'mse', 'ssim']):
     """
     Method to generate a simple report for a certain CSV_file.
     Args:
         csv_file (str): The path to the CSV file where to extract the data from.
         results_file (str): The path to the TXT file where to save the results. If none is given, the results will be saved in the same directory as the CSV file with a defalt name.
+        reference_iteration (int): The iteration to use as reference between a resonable and the optimal value. Default value is 1750.
         metrics_to_use (list): A list containing the metrics to use. psnr, mse and ssim are the only valid options and the default ones.
     """
     if results_file is None:
@@ -426,17 +427,29 @@ def generate_metric_report_for_a_single_image(csv_file, results_file=None, metri
     df = pd.read_csv(csv_file)
     for metric in metrics_to_use:
         values_gt = df[f'{metric}_gt']
-        max_value_gt = values_gt.max()
+        max_value_gt = values_gt.max() if metric != 'mse' else values_gt.min()
 
         idx_max_value_gt = values_gt.idxmin() if metric == 'mse' else values_gt.idxmax()
 
         value_gt_e = df[f'{metric}_gt_e'][idx_max_value_gt]
         value_gt_h = df[f'{metric}_gt_h'][idx_max_value_gt]
 
+        preffix = 'Max' if metric != 'mse' else 'Min'
+
         with open(results_file, 'a') as f:
-            f.write(f'{metric.upper()}: {max_value_gt} at iteration {idx_max_value_gt}.\n')
+            f.write(f'{preffix} {metric.upper()}: {max_value_gt} at iteration {idx_max_value_gt}.\n')
             f.write(f'{metric.upper()}_GT_H: {value_gt_h}\n')
             f.write(f'{metric.upper()}_GT_E: {value_gt_e}\n\n')
+
+            values_interval = values_gt[reference_iteration[0]:reference_iteration[1]+1]
+            max_value = np.max(values_interval) if metric != 'mse' else np.min(values_interval)
+            max_index = np.argmax(values_interval) + reference_iteration[0] if metric != 'mse' else np.argmin(values_interval) + reference_iteration[0]
+
+            f.write(f'{metric.upper()}: {max_value} at iteration {max_index}.\n')
+            f.write(f'{metric.upper()}_GT_H: {df[f"{metric}_gt_h"][max_index]}\n')
+            f.write(f'{metric.upper()}_GT_E: {df[f"{metric}_gt_e"][max_index]}\n\n')
+
+            f.write(f'Percentage of improvement for {metric.upper()}: {"{:.3f}".format((max_value - max_value_gt) / values_gt[max_index] * 100)}%\n\n')
 
     times = df['time']
     with open(results_file, 'a') as f:
@@ -464,7 +477,7 @@ if __name__ == "__main__":
         # generate_metric_report_for_a_single_image(askforCSVfileviaGUI())
         generate_metric_report_for_a_directory('/home/modejota/Deep_Var_BCD/results_reduced_dataset', training_type='batch_training')
         
-        
+        """
         print("\nGenerating graphs for all approaches and selected images.")
         generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/graphs_per_approach/', training_type='per_image_training')
         
@@ -478,4 +491,4 @@ if __name__ == "__main__":
 
         print("\nGenerating metrics' report for all methods.")
         generate_metric_report_all_methods()
-        
+        """
