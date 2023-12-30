@@ -1,7 +1,9 @@
-import os, re, math
+import os, re, sys, math
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
+sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from utils import askforCSVfileviaGUI
 
 def get_csv_filepaths(directory_path='/home/modejota/Deep_Var_BCD/results/results_reduced_datasets/', training_type=None):
     """Given a directory path, return a list of all the CSV file paths in that directory and its subdirectories.
@@ -182,7 +184,7 @@ def generate_graphs_by_image(organ: str, id: int,
     csv_files.sort()
 
     num_files = len(csv_files)
-    # print(f'Found {num_files} CSV files for {organ}_{id}.')
+    print(f'Found {num_files} CSV files for {organ}_{id}.')
     print(f'Generating graphs for {organ}_{id}.')
     if num_files == 0:
         return
@@ -409,13 +411,57 @@ def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/result
     for ruta_completa in directorios:
         generate_metrics_report(os.path.basename(ruta_completa), indir, outdir, use_inner_directory=False)
 
+def generate_metric_report_for_a_single_image(csv_file, results_file=None, metrics_to_use=['psnr', 'mse', 'ssim']):
+    """
+    Method to generate a simple report for a certain CSV_file.
+    Args:
+        csv_file (str): The path to the CSV file where to extract the data from.
+        results_file (str): The path to the TXT file where to save the results. If none is given, the results will be saved in the same directory as the CSV file with a defalt name.
+        metrics_to_use (list): A list containing the metrics to use. psnr, mse and ssim are the only valid options and the default ones.
+    """
+    if results_file is None:
+            base_name = os.path.splitext(os.path.basename(csv_file))[0]  # Obtener el nombre sin la extensión
+            results_file = os.path.join(os.path.dirname(csv_file), f'metrics_report_{base_name}.txt')
+
+    df = pd.read_csv(csv_file)
+    for metric in metrics_to_use:
+        values_gt = df[f'{metric}_gt']
+        max_value_gt = values_gt.max()
+
+        idx_max_value_gt = values_gt.idxmin() if metric == 'mse' else values_gt.idxmax()
+
+        value_gt_e = df[f'{metric}_gt_e'][idx_max_value_gt]
+        value_gt_h = df[f'{metric}_gt_h'][idx_max_value_gt]
+
+        with open(results_file, 'a') as f:
+            f.write(f'{metric.upper()}: {max_value_gt} at iteration {idx_max_value_gt}.\n')
+            f.write(f'{metric.upper()}_GT_H: {value_gt_h}\n')
+            f.write(f'{metric.upper()}_GT_E: {value_gt_e}\n\n')
+
+def generate_metric_report_for_a_directory(directory_path, metrics_to_use=['psnr', 'mse', 'ssim'], training_type='batch_training'):
+    """
+    Method to generate a simple report for a certain directory.
+    Args:
+        directory_path (str): The path to the directory where to extract the data from.
+        metrics_to_use (list): A list containing the metrics to use. psnr, mse and ssim are the only valid options and the default ones.
+    """
+    csv_files = get_csv_filepaths(directory_path, training_type)
+    csv_files.sort()
+
+    for csv_file in csv_files:
+        generate_metric_report_for_a_single_image(csv_file, metrics_to_use=metrics_to_use)
+
 EXECUTE_SAMPLES = True
 if __name__ == "__main__":
 
     if EXECUTE_SAMPLES:
         
+        # generate_metric_report_for_a_single_image(askforCSVfileviaGUI())
+        generate_metric_report_for_a_directory('/home/modejota/Deep_Var_BCD/results_reduced_dataset', training_type='batch_training')
+        
+        
         print("\nGenerating graphs for all approaches and selected images.")
-        generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_approach/', training_type='batch_training')
+        generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/graphs_per_approach/', training_type='per_image_training')
         
         print("\nGenerating graphs for selected images.")
         generate_graphs_by_image_v2(organ='Colon', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
@@ -427,3 +473,4 @@ if __name__ == "__main__":
 
         print("\nGenerating metrics' report for all methods.")
         generate_metric_report_all_methods()
+        

@@ -167,6 +167,23 @@ def askforPyTorchWeightsviaGUI(initialdirectory="."):
         sys.exit(102)
     return weights
 
+def askforCSVfileviaGUI(initialdirectory="."):
+    Tk().withdraw()
+    try:
+        csv = filedialog.askopenfilename(initialdir=initialdirectory, title="Seleccione fichero", filetypes=[
+            ("CSV files", (".csv")),
+        ])
+    except(OSError, FileNotFoundError):
+        print(f'No se ha podido abrir el fichero seleccionado.')
+        sys.exit(100)
+    except Exception as error:
+        print(f'Ha ocurrido un error: <{error}>')
+        sys.exit(101)
+    if csv is None:
+        print(f'No se ha seleccionado ningún archivo.')
+        sys.exit(102)
+    return csv
+
 def generate_reduced_dataset_from_full_dataset(
         directorio_origen = '/home/modejota/Deep_Var_BCD/results_full_datasets/',
         directorio_destino = '/home/modejota/Deep_Var_BCD/results_reduced_datasets/',
