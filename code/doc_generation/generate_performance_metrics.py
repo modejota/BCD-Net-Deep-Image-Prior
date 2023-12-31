@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from scipy import stats
 from utils import askforCSVfileviaGUI
 
 def get_csv_filepaths(directory_path='/home/modejota/Deep_Var_BCD/results/results_reduced_datasets/', training_type=None):
@@ -469,6 +470,34 @@ def generate_metric_report_for_a_directory(directory_path, metrics_to_use=['psnr
     for csv_file in csv_files:
         generate_metric_report_for_a_single_image(csv_file, metrics_to_use=metrics_to_use)
 
+def independent_samples_t_test(mean1, mean2, std_deviation1, std_deviation2, n, reference_p_value):
+    """
+    Method to perform an independent samples t-test between two samples.
+    Args:
+        mean1 (float): The mean of the first sample
+        mean2 (float): The mean of the second sample
+        std_deviation1 (float): The standard deviation of the first sample
+        std_deviation2 (float): The standard deviation of the second sample
+        n (int): The number of elements in each sample
+        reference_p_value (float): The reference p-value to use
+    """
+
+    result = stats.ttest_ind_from_stats(mean1=mean1, std1=std_deviation1, nobs1=n,
+                                        mean2=mean2, std2=std_deviation2, nobs2=n)
+
+    t_value = result.statistic
+    p_value = result.pvalue
+
+    # Display the results with 4 decimal digits
+    print(f"Independent samples t-test for two samples with {n} elements each.")
+    print(f"t-value: {t_value:.4f}")
+    print(f"p-value: {p_value:.4f}")
+
+    if p_value < reference_p_value:
+        print("Reject null hypothesis. Significant differences exist between the two samples.")
+    else:
+        print("Accept null hypothesis. No significant difference between the two samples.")
+
 EXECUTE_SAMPLES = True
 if __name__ == "__main__":
 
@@ -477,7 +506,7 @@ if __name__ == "__main__":
         # generate_metric_report_for_a_single_image(askforCSVfileviaGUI())
         generate_metric_report_for_a_directory('/home/modejota/Deep_Var_BCD/results_reduced_dataset', training_type='batch_training')
         
-        """
+        
         print("\nGenerating graphs for all approaches and selected images.")
         generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/graphs_per_approach/', training_type='per_image_training')
         
@@ -491,4 +520,4 @@ if __name__ == "__main__":
 
         print("\nGenerating metrics' report for all methods.")
         generate_metric_report_all_methods()
-        """
+        
