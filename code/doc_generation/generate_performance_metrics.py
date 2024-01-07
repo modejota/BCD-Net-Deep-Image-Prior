@@ -470,33 +470,29 @@ def generate_metric_report_for_a_directory(directory_path, metrics_to_use=['psnr
     for csv_file in csv_files:
         generate_metric_report_for_a_single_image(csv_file, metrics_to_use=metrics_to_use)
 
-def independent_samples_t_test(mean1, mean2, std_deviation1, std_deviation2, n, reference_p_value):
+def independent_t_test(meansA, meansB, stdsA, stdsB, sizeA, sizeB, significance_level=0.05):
     """
-    Method to perform an independent samples t-test between two samples.
+    Perform an independent t-test for a certain metric.
     Args:
-        mean1 (float): The mean of the first sample
-        mean2 (float): The mean of the second sample
-        std_deviation1 (float): The standard deviation of the first sample
-        std_deviation2 (float): The standard deviation of the second sample
-        n (int): The number of elements in each sample
-        reference_p_value (float): The reference p-value to use
+        meansA (list): A list containing the means for the first group
+        meansB (list): A list containing the means for the second group
+        stdsA (list): A list containing the stds for the first group
+        stdsB (list): A list containing the stds for the second group
+        sizeA (list): A list containing the sizes for the first group
+        sizeB (list): A list containing the sizes for the second group
+        significance_level (float): The significance level to use. Default value is 0.05
     """
+    results = []
 
-    result = stats.ttest_ind_from_stats(mean1=mean1, std1=std_deviation1, nobs1=n,
-                                        mean2=mean2, std2=std_deviation2, nobs2=n)
+    for mean_A, mean_B, std_A, std_B, size_A, size_B in zip(meansA, meansB, stdsA, stdsB, sizeA, sizeB):
+        result = stats.ttest_ind_from_stats(mean1=mean_A, std1=std_A, nobs1=size_A,
+                                            mean2=mean_B, std2=std_B, nobs2=size_B)
+        p_value = result.pvalue
+        passes_test = p_value < significance_level
 
-    t_value = result.statistic
-    p_value = result.pvalue
+        results.append(passes_test)
 
-    # Display the results with 4 decimal digits
-    print(f"Independent samples t-test for two samples with {n} elements each.")
-    print(f"t-value: {t_value:.4f}")
-    print(f"p-value: {p_value:.4f}")
-
-    if p_value < reference_p_value:
-        print("Reject null hypothesis. Significant differences exist between the two samples.")
-    else:
-        print("Accept null hypothesis. No significant difference between the two samples.")
+    return results
 
 EXECUTE_SAMPLES = True
 if __name__ == "__main__":
@@ -505,7 +501,6 @@ if __name__ == "__main__":
         
         # generate_metric_report_for_a_single_image(askforCSVfileviaGUI())
         generate_metric_report_for_a_directory('/home/modejota/Deep_Var_BCD/results_reduced_dataset', training_type='batch_training')
-        
         
         print("\nGenerating graphs for all approaches and selected images.")
         generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/graphs_per_approach/', training_type='per_image_training')
