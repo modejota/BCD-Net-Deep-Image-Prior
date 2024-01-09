@@ -132,31 +132,54 @@ def generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduc
         contador = 0
 
         for metric in metrics_to_use:
-            fig, ax = plt.subplots(num_rows, 3, figsize=(10*num_rows, 5 * num_rows))
-            fig.suptitle(f'Approach: {method_name} - Metric: {metric.upper()}')
+            if num_rows == 1:
+                fig, ax = plt.subplots(num_rows, 3, figsize=(18, 5))
+            else:
+                fig, ax = plt.subplots(num_rows, 3, figsize=(10*num_rows, 5 * num_rows))
+            # fig.suptitle(f'Approach: {method_name} - Metric: {metric.upper()}')
 
             for row in range(num_rows):
                 for col in range(3):
                     idx = row * 3 + col
                     if idx < len(filenames):
                         organ = filenames[idx]
-                        ax[row, col].set_title('Organ: ' + organ)
-                        ax[row, col].set_xlabel('Iterations')
-                        ax[row, col].set_ylabel('Value')
 
-                        if metric != "loss":
-                            data_idx = idx * 3
-                            ax[row, col].plot(data_lists[metric][data_idx + 1], label=f'{metric}_gt_e', color='steelblue')
-                            ax[row, col].plot(data_lists[metric][data_idx + 2], label=f'{metric}_gt_h', color='orange')
-                            ax[row, col].plot(data_lists[metric][data_idx], label=f'{metric}_gt', color='green')
+                        if num_rows == 1:
+                            ax[col].set_title('Organ: ' + organ)
+                            ax[col].set_xlabel('Iterations')
+                            ax[col].set_ylabel('Value')
 
-                            if metric == 'ssim':
-                                ax[row, col].set_ylim(0, None)
+                            if metric != "loss":
+                                data_idx = idx * 3
+                                ax[col].plot(data_lists[metric][data_idx + 1], label=f'{metric}_gt_e', color='steelblue')
+                                ax[col].plot(data_lists[metric][data_idx + 2], label=f'{metric}_gt_h', color='orange')
+                                ax[col].plot(data_lists[metric][data_idx], label=f'{metric}_gt', color='green')
+
+                                if metric == 'ssim':
+                                    ax[col].set_ylim(0, None)
+                            else:
+                                ax[col].plot(data_lists[metric][idx], label=f'{metric}', color='red')
+
+                            ax[col].legend()
                         else:
-                            ax[row, col].plot(data_lists[metric][idx], label=f'{metric}', color='red')
+                            ax[col].set_title('Organ: ' + organ)
+                            ax[col].set_xlabel('Iterations')
+                            ax[col].set_ylabel('Value')
 
-                        ax[row, col].legend()
+                            if metric != "loss":
+                                data_idx = idx * 3
+                                ax[row, col].plot(data_lists[metric][data_idx + 1], label=f'{metric}_gt_e', color='steelblue')
+                                ax[row, col].plot(data_lists[metric][data_idx + 2], label=f'{metric}_gt_h', color='orange')
+                                ax[row, col].plot(data_lists[metric][data_idx], label=f'{metric}_gt', color='green')
 
+                                if metric == 'ssim':
+                                    ax[row, col].set_ylim(0, None)
+                            else:
+                                ax[row, col].plot(data_lists[metric][idx], label=f'{metric}', color='red')
+
+                            ax[row, col].legend()
+
+            plt.tight_layout()
             plt.savefig(os.path.join(outdir, f'{method_name}_{metric.upper()}.png'))
             plt.close()
 
@@ -503,16 +526,14 @@ if __name__ == "__main__":
         generate_metric_report_for_a_directory('/home/modejota/Deep_Var_BCD/results_reduced_dataset', training_type='batch_training')
         
         print("\nGenerating graphs for all approaches and selected images.")
-        generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/graphs_per_approach/', training_type='per_image_training')
+        generate_graphs_by_approach(indir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/', outdir='/home/modejota/Deep_Var_BCD/results_reduced_dataset/graphs_per_approach/', training_type='batch_training', metrics_to_use=["psnr", "ssim"])
+        
         
         print("\nGenerating graphs for selected images.")
-        generate_graphs_by_image_v2(organ='Colon', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
         generate_graphs_by_image_v2(organ='Colon', id=6, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
-        generate_graphs_by_image_v2(organ='Lung', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
         generate_graphs_by_image_v2(organ='Lung', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
-        generate_graphs_by_image_v2(organ='Breast', id=0, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
         generate_graphs_by_image_v2(organ='Breast', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
-
+            
         print("\nGenerating metrics' report for all methods.")
         generate_metric_report_all_methods()
         
