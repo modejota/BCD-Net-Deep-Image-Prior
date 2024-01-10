@@ -340,6 +340,7 @@ def generate_metrics_report(approach: str,
                             organs=["Colon", "Breast", "Lung"], 
                             training_type='batch_training', 
                             metrics_to_use=["psnr", "mse", "ssim"],
+                            interval_for_fast_convergence=[1250, 2000],
                             use_inner_directory=True):
     """
     Generate a report with the metrics for each organ and across all dataset for a given approach (represented by its directory).
@@ -350,6 +351,7 @@ def generate_metrics_report(approach: str,
         organs (list): A list containing the organs to use. Colon, Breast and Lung are the only valid options
         training_type (str): The type of training that was done. It can be "per_image_training" or "batch_training". The middle directory name must match this value
         metrics_to_use (list): A list containing the metrics to use. psnr, mse and ssim are the only valid options
+        interval_for_fast_convergence (list): A list containing the interval to use to calculate metrics taking into account the fast convergence. Default value is [1250, 2000]
         use_inner_directory (bool): Whether to use the inner directory or not. If True, the report will be saved in outdir/approach/batch_training. If False, the report will be saved in outdir
     """
     indir += os.sep if indir[-1] != os.sep else ''
@@ -377,6 +379,12 @@ def generate_metrics_report(approach: str,
         organ_files[organ_info].append(filename)
           
     metrics_per_organ = {organ: {metric: [] for metric in metrics_to_use} for organ in organs}
+    metrics_in_interval_per_organ = {organ: {metric: [] for metric in metrics_to_use} for organ in organs}
+    time_per_organ_per_metric = {organ: {metric: [] for metric in metrics_to_use} for organ in organs}
+    iteration_per_organ_per_metric = {organ: {metric: [] for metric in metrics_to_use} for organ in organs}
+    # Define a structure like the previous one but only for the iteration
+
+
     for organ in organs:
         for metric in metrics_to_use:
             for filename in organ_files[organ]:
@@ -385,17 +393,41 @@ def generate_metrics_report(approach: str,
                 idx_max_value_gt = df[f'{metric}_gt'].idxmax()
                 value_gt_e = df[f'{metric}_gt_e'][idx_max_value_gt]
                 value_gt_h = df[f'{metric}_gt_h'][idx_max_value_gt]
+                time_until_max_value = sum(df['time'][:idx_max_value_gt])
+
+                max_value_interval_gt = df[f'{metric}_gt'][interval_for_fast_convergence[0]:interval_for_fast_convergence[1]+1].max()
+                idx_max_value_interval_gt = df[f'{metric}_gt'][interval_for_fast_convergence[0]:interval_for_fast_convergence[1]+1].idxmax()
+                max_value_interval_gt_h = df[f'{metric}_gt_h'][idx_max_value_interval_gt]
+                max_value_interval_gt_e = df[f'{metric}_gt_e'][idx_max_value_interval_gt]
+                time_until_max_value_interval = sum(df['time'][:idx_max_value_interval_gt])
 
                 metrics_per_organ[organ][metric].append((max_value_gt, value_gt_h, value_gt_e))
-        
+                metrics_in_interval_per_organ[organ][metric].append((max_value_interval_gt, max_value_interval_gt_h, max_value_interval_gt_e))
+                time_per_organ_per_metric[organ][metric].append((time_until_max_value, time_until_max_value_interval))
+                iteration_per_organ_per_metric[organ][metric].append((idx_max_value_gt, idx_max_value_interval_gt))
+
+
         # Calculate the mean value and the std for each metric
         for metric in metrics_to_use:
             metrics_per_organ[organ][metric] = np.array(metrics_per_organ[organ][metric])
             metrics_per_organ[organ][metric] = (metrics_per_organ[organ][metric].mean(axis=0), metrics_per_organ[organ][metric].std(axis=0))
+            metrics_in_interval_per_organ[organ][metric] = np.array(metrics_in_interval_per_organ[organ][metric])
+            metrics_in_interval_per_organ[organ][metric] = (metrics_in_interval_per_organ[organ][metric].mean(axis=0), metrics_in_interval_per_organ[organ][metric].std(axis=0))
+            time_per_organ_per_metric[organ][metric] = np.array(time_per_organ_per_metric[organ][metric])
+            time_per_organ_per_metric[organ][metric] = (time_per_organ_per_metric[organ][metric].mean(axis=0), time_per_organ_per_metric[organ][metric].std(axis=0))
+            iteration_per_organ_per_metric[organ][metric] = np.array(iteration_per_organ_per_metric[organ][metric])
+            iteration_per_organ_per_metric[organ][metric] = (iteration_per_organ_per_metric[organ][metric].mean(axis=0), iteration_per_organ_per_metric[organ][metric].std(axis=0))
 
     sum_mean_metrics = { metric: np.zeros(3) for metric in metrics_to_use }
     sum_std_metrics = { metric: np.zeros(3) for metric in metrics_to_use }
-    # Save the values into a text file
+    sum_mean_metrics_interval = { metric: np.zeros(3) for metric in metrics_to_use }
+    sum_std_metrics_interval = { metric: np.zeros(3) for metric in metrics_to_use }
+    sum_mean_time = { metric: np.zeros(2) for metric in metrics_to_use }
+    sum_std_time = { metric: np.zeros(2) for metric in metrics_to_use }
+    sum_mean_iterations = { metric: np.zeros(2) for metric in metrics_to_use }
+    sum_std_iterations = { metric: np.zeros(2) for metric in metrics_to_use }
+    
+
     with open(os.path.join(outdir_approach, f'{approach}_metrics.txt'), 'w') as f:
         # print("Saving metrics' report in", os.path.join(outdir_approach, f'{approach}_metrics.txt'))
         for organ in organs:
@@ -404,9 +436,25 @@ def generate_metrics_report(approach: str,
                 f.write(f'\t{metric.upper()}: {"{:.3f}".format(metrics_per_organ[organ][metric][0][0])} ± {"{:.3f}".format(metrics_per_organ[organ][metric][1][0])}\n')
                 f.write(f'\t{metric.upper()}_GT_H: {"{:.3f}".format(metrics_per_organ[organ][metric][0][1])} ± {"{:.3f}".format(metrics_per_organ[organ][metric][1][1])}\n')
                 f.write(f'\t{metric.upper()}_GT_E: {"{:.3f}".format(metrics_per_organ[organ][metric][0][2])} ± {"{:.3f}".format(metrics_per_organ[organ][metric][1][2])}\n')
+                f.write(f'\tTime: {"{:.3f}".format(time_per_organ_per_metric[organ][metric][0][0])} ± {"{:.3f}".format(time_per_organ_per_metric[organ][metric][1][0])}\n')
+                f.write(f'\tIterations: {"{:.3f}".format(iteration_per_organ_per_metric[organ][metric][0][0])} ± {"{:.3f}".format(iteration_per_organ_per_metric[organ][metric][1][0])}\n\n')
+
+
+                f.write(f'\t{metric.upper()}_INTERVAL: {"{:.3f}".format(metrics_in_interval_per_organ[organ][metric][0][0])} ± {"{:.3f}".format(metrics_in_interval_per_organ[organ][metric][1][0])}\n')
+                f.write(f'\t{metric.upper()}_INTERVAL_GT_H: {"{:.3f}".format(metrics_in_interval_per_organ[organ][metric][0][1])} ± {"{:.3f}".format(metrics_in_interval_per_organ[organ][metric][1][1])}\n')
+                f.write(f'\t{metric.upper()}_INTERVAL_GT_E: {"{:.3f}".format(metrics_in_interval_per_organ[organ][metric][0][2])} ± {"{:.3f}".format(metrics_in_interval_per_organ[organ][metric][1][2])}\n')
+                f.write(f'\tTime_INTERVAL: {"{:.3f}".format(time_per_organ_per_metric[organ][metric][0][1])} ± {"{:.3f}".format(time_per_organ_per_metric[organ][metric][1][1])}\n')
+                f.write(f'\tIterations_INTERVAL: {"{:.3f}".format(iteration_per_organ_per_metric[organ][metric][0][1])} ± {"{:.3f}".format(iteration_per_organ_per_metric[organ][metric][1][1])}\n\n')
 
                 sum_mean_metrics[metric] += metrics_per_organ[organ][metric][0]
                 sum_std_metrics[metric] += metrics_per_organ[organ][metric][1]
+                sum_mean_time[metric] += time_per_organ_per_metric[organ][metric][0]
+                sum_mean_iterations[metric] += iteration_per_organ_per_metric[organ][metric][0]
+
+                sum_mean_metrics_interval[metric] += metrics_in_interval_per_organ[organ][metric][0]
+                sum_std_metrics_interval[metric] += metrics_in_interval_per_organ[organ][metric][1]
+                sum_std_time[metric] += time_per_organ_per_metric[organ][metric][1]
+                sum_std_iterations[metric] += iteration_per_organ_per_metric[organ][metric][1]
 
             f.write('\n\n')
 
@@ -415,10 +463,19 @@ def generate_metrics_report(approach: str,
             f.write(f'\t{metric.upper()}: {"{:.3f}".format(sum_mean_metrics[metric][0] / len(organs))} ± {"{:.3f}".format(sum_std_metrics[metric][0] / len(organs))}\n')
             f.write(f'\t{metric.upper()}_GT_H: {"{:.3f}".format(sum_mean_metrics[metric][1] / len(organs))} ± {"{:.3f}".format(sum_std_metrics[metric][1] / len(organs))}\n')
             f.write(f'\t{metric.upper()}_GT_E: {"{:.3f}".format(sum_mean_metrics[metric][2] / len(organs))} ± {"{:.3f}".format(sum_std_metrics[metric][2] / len(organs))}\n')
+            f.write(f'\tTime: {"{:.3f}".format(sum_mean_time[metric][0] / len(organs))} ± {"{:.3f}".format(sum_std_time[metric][0] / len(organs))}\n')
+            f.write(f'\tIterations: {"{:.3f}".format(sum_mean_iterations[metric][0] / len(organs))} ± {"{:.3f}".format(sum_std_iterations[metric][0] / len(organs))}\n\n')
+
+            f.write(f'\t{metric.upper()}_INTERVAL: {"{:.3f}".format(sum_mean_metrics_interval[metric][0] / len(organs))} ± {"{:.3f}".format(sum_std_metrics_interval[metric][0] / len(organs))}\n')
+            f.write(f'\t{metric.upper()}_INTERVAL_GT_H: {"{:.3f}".format(sum_mean_metrics_interval[metric][1] / len(organs))} ± {"{:.3f}".format(sum_std_metrics_interval[metric][1] / len(organs))}\n')
+            f.write(f'\t{metric.upper()}_INTERVAL_GT_E: {"{:.3f}".format(sum_mean_metrics_interval[metric][2] / len(organs))} ± {"{:.3f}".format(sum_std_metrics_interval[metric][2] / len(organs))}\n')
+            f.write(f'\tTime_INTERVAL: {"{:.3f}".format(sum_mean_time[metric][1] / len(organs))} ± {"{:.3f}".format(sum_std_time[metric][1] / len(organs))}\n')
+            f.write(f'\tIterations_INTERVAL: {"{:.3f}".format(sum_mean_iterations[metric][1] / len(organs))} ± {"{:.3f}".format(sum_std_iterations[metric][1] / len(organs))}\n\n')
 
         f.write('\n\n')
 
-def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/results_full_datasets/',  outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/'):
+def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/results_full_dataset/',  outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_dataset/',
+                                       interval_for_fast_convergence=[1250, 2000]):
     """
     Wrapper method to generate the metrics' report for all methods.
     Args:
@@ -433,7 +490,7 @@ def generate_metric_report_all_methods(indir='/home/modejota/Deep_Var_BCD/result
             directorios.append(ruta_completa)
 
     for ruta_completa in directorios:
-        generate_metrics_report(os.path.basename(ruta_completa), indir, outdir, use_inner_directory=False)
+        generate_metrics_report(os.path.basename(ruta_completa), indir, outdir, use_inner_directory=False, interval_for_fast_convergence=interval_for_fast_convergence)
 
 def generate_metric_report_for_a_single_image(csv_file, results_file=None, reference_iteration=[1500,2000], metrics_to_use=['psnr', 'mse', 'ssim']):
     """
@@ -517,10 +574,32 @@ def independent_t_test(meansA, meansB, stdsA, stdsB, sizeA, sizeB, significance_
 
     return results
 
+def division_with_uncertainty(means_A, stds_A, means_B, stds_B):
+    """
+    Perform a division with uncertainty for a certain metric. It is entended to divide (meanA + stdA) / (meanB + stdB) 
+    Args:
+        meansA (list): A list containing the means for the first group
+        meansB (list): A list containing the means for the second group
+        stdsA (list): A list containing the stds for the first group
+        stdsB (list): A list containing the stds for the second group
+    """
+    results = []
+    for mean_A, std_A, mean_B, std_B in zip(means_A, stds_A, means_B, stds_B):
+
+        # División de los valores
+        division = mean_A / mean_B
+
+        # Cálculo de la incertidumbre combinada
+        uncertainty = math.sqrt((std_A / mean_A)**2 + (std_B / mean_B)**2)
+
+        results.append((division, uncertainty))
+    return results
+
 EXECUTE_SAMPLES = True
 if __name__ == "__main__":
 
     if EXECUTE_SAMPLES:
+        
         
         # generate_metric_report_for_a_single_image(askforCSVfileviaGUI())
         generate_metric_report_for_a_directory('/home/modejota/Deep_Var_BCD/results_reduced_dataset', training_type='batch_training')
@@ -533,7 +612,7 @@ if __name__ == "__main__":
         generate_graphs_by_image_v2(organ='Colon', id=6, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
         generate_graphs_by_image_v2(organ='Lung', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
         generate_graphs_by_image_v2(organ='Breast', id=48, indir='/home/modejota/Deep_Var_BCD/results_full_datasets/', outdir='/home/modejota/Deep_Var_BCD/results_metrics_full_datasets/graphs_per_image/', training_type='batch_training')
-            
+        
         print("\nGenerating metrics' report for all methods.")
         generate_metric_report_all_methods()
         
