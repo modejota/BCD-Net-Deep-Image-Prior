@@ -576,7 +576,7 @@ def independent_t_test(meansA, meansB, stdsA, stdsB, sizeA, sizeB, significance_
 
 def division_with_uncertainty(means_A, stds_A, means_B, stds_B):
     """
-    Perform a division with uncertainty for a certain metric. It is entended to divide (meanA + stdA) / (meanB + stdB) 
+    Perform a division with uncertainty for a certain metric. It is intended to divide (meanA + stdA) / (meanB + stdB) 
     Args:
         meansA (list): A list containing the means for the first group
         meansB (list): A list containing the means for the second group
